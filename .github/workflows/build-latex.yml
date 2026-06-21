@@ -3,6 +3,11 @@ on: [push]
 jobs:
   build_latex:
     runs-on: ubuntu-latest
+    
+    # Bắt buộc: Cấp quyền cho GitHub Actions được phép ghi (push) vào repo của bạn
+    permissions:
+      contents: write 
+      
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -10,10 +15,10 @@ jobs:
       - name: Compile LaTeX
         uses: xu-cheng/latex-action@v3
         with:
-          root_file: main.tex # Tên file LaTeX chính của bạn
+          root_file: main.tex
           
-      - name: Upload PDF artifact
-        uses: actions/upload-artifact@v4
+      - name: Auto-commit PDF back to repository
+        uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          name: YOLO26-Report # Tên thư mục chứa file tải về
-          path: main.pdf      # Đường dẫn file PDF được tạo ra
+          commit_message: "Tự động cập nhật file PDF mới nhất"
+          file_pattern: "*.pdf"
