@@ -1,0 +1,204 @@
+% ============================================================
+% CHƯƠNG 7: MUON OPTIMIZER
+% ============================================================
+\chapter{Muon Optimizer và MuSGD}
+\label{ch:muon}
+
+\section{Vấn đề của SGD/AdamW truyền thống}
+
+SGD và AdamW cập nhật trọng số theo từng phần tử (element-wise), bỏ qua cấu trúc hình học của ma trận trọng số. Khi các hướng (principal components) có gradient chênh lệch lớn (ill-conditioned), bước cập nhật bị mất cân bằng nghiêm trọng.
+
+\begin{conceptbox}[Vấn đề Ill-Conditioning]
+Xét ma trận gradient $G = \begin{bmatrix} 2 & -1 \\ 2 & 1 \end{bmatrix}$ và $W = I$, $\eta = 0.1$:
+\begin{equation}
+    W_{\text{SGD}} = W - \eta G = \begin{bmatrix} 0.8 & 0.1 \\ -0.2 & 0.9 \end{bmatrix}
+\end{equation}
+Ma trận kết quả bị lệch trục nghiêm trọng do gradient không cân bằng giữa các chiều.
+\end{conceptbox}
+
+% ---------------------------------------------------------------
+\section{Giải pháp: Trực giao hóa Gradient}
+
+Muon~\cite{muon} trực giao hóa ma trận gradient: bóc tách và loại bỏ scale ($\Sigma$), chỉ giữ ma trận hướng trực giao $O = UV^T$.
+
+\begin{equation}
+    W_{t+1} = W_t - \eta \cdot O, \quad \text{trong đó } O = UV^T \text{ với } G = U\Sigma V^T
+\end{equation}
+
+Kết quả: mọi singular values của $O$ đều bằng 1, đảm bảo bước cập nhật đều đặn trên mọi đặc trưng.
+
+\begin{equation}
+    W_{\text{Muon}} = I - 0.1 \times \begin{bmatrix} 0.7071 & -0.7071 \\ 0.7071 & 0.7071 \end{bmatrix} = \begin{bmatrix} 0.929 & 0.071 \\ -0.071 & 0.929 \end{bmatrix}
+\end{equation}
+
+Cân bằng hoàn hảo so với SGD.
+
+% ---------------------------------------------------------------
+\section{Singular Value Decomposition (SVD)}
+
+\begin{conceptbox}[Khái niệm: SVD]
+Phân rã giá trị kỳ dị: $A = U \Sigma V^T$
+
+\begin{itemize}
+    \item $V^T$: Xoay không gian đầu vào (ma trận trực giao)
+    \item $\Sigma$: Co giãn theo các giá trị kỳ dị $\sigma_i$ (ma trận đường chéo)
+    \item $U$: Xoay đến không gian đầu ra (ma trận trực giao)
+\end{itemize}
+\end{conceptbox}
+
+\textbf{Cách tìm SVD từ} $M = A^T A$:
+\begin{enumerate}
+    \item Tìm trị riêng: $\det(M - \lambda I) = 0$
+    \item Giá trị kỳ dị: $\sigma_i = \sqrt{\lambda_i}$
+    \item Vector riêng: $(M - \lambda_i I)v_i = 0$, chuẩn hóa $\|v_i\| = 1$
+    \item Ma trận trực giao: $O = UV^T$
+\end{enumerate}
+
+\textbf{Hạn chế}: SVD có complexity $O(mn^2)$, sử dụng Householder reflections --- sequential, CPU-bound, không phù hợp GPU.
+
+% ---------------------------------------------------------------
+\section{Newton--Schulz Iteration}
+\label{sec:newton_schulz}
+
+Newton--Schulz xấp xỉ $O = UV^T$ chỉ bằng phép nhân ma trận (GPU-friendly).
+
+\subsection{Bước 0: Chuẩn hóa Frobenius}
+
+\begin{equation}
+    X_0 = \frac{G}{\|G\|_F}, \quad \|G\|_F = \sqrt{\sum_{i,j} g_{ij}^2} = \sqrt{\sum_i \sigma_i^2}
+\end{equation}
+
+Đảm bảo tổng bình phương singular values bằng 1, suy ra mọi $\sigma \leq 1$ (vùng hội tụ an toàn).
+
+\subsection{Công thức lặp (Standard --- Quadratic)}
+
+\begin{equation}
+    X_{k+1} = \frac{3}{2} X_k - \frac{1}{2} X_k (X_k^T X_k)
+    \label{eq:ns_standard}
+\end{equation}
+
+\subsection{Dạng Cubic (dùng trong Muon/YOLO26)}
+
+\begin{align}
+    A_k &= X_k X_k^T \\
+    X_{k+1} &= a \, X_k + b \, (A_k X_k) + c \, (A_k^2 X_k)
+    \label{eq:ns_cubic}
+\end{align}
+
+Hệ số tối ưu cho cubic convergence: $a = 3.4445$, $b = -4.7750$, $c = 2.0315$.
+
+\subsection{Ý nghĩa đa thức}
+
+Newton--Schulz áp dụng đa thức $f(\sigma)$ lên các singular values:
+\begin{equation}
+    f(\sigma) = \frac{3}{2}\sigma - \frac{1}{2}\sigma^3 \quad \text{(standard)}
+\end{equation}
+\begin{equation}
+    f(\sigma) = a\sigma + b\sigma^3 + c\sigma^5 \quad \text{(cubic)}
+\end{equation}
+
+Đa thức này hoạt động như ``lực hút'' ép mọi $\sigma$ về $1.0$:
+\begin{equation}
+    \Sigma = \text{diag}(\sigma_1, \ldots, \sigma_n) \xrightarrow{f^{(T)}} I
+\end{equation}
+
+% ---------------------------------------------------------------
+\section{Ví dụ tính toán chi tiết}
+
+\textbf{Ma trận gradient}: $G = \begin{bmatrix} 2 & -1 \\ 2 & 1 \end{bmatrix}$
+
+\textbf{Chuẩn Frobenius}: $\|G\|_F = \sqrt{4+1+4+1} = \sqrt{10} \approx 3.162$
+
+\textbf{Khởi tạo}: $X_0 = \frac{1}{3.162}\begin{bmatrix} 2 & -1 \\ 2 & 1 \end{bmatrix} = \begin{bmatrix} 0.632 & -0.316 \\ 0.632 & 0.316 \end{bmatrix}$
+
+\begin{table}[H]
+\centering
+\begin{tabular}{cccc}
+\toprule
+\textbf{Iter} & $\sigma_1$ & $\sigma_2$ & $\kappa = \sigma_1/\sigma_2$ \\
+\midrule
+0 & 0.894 & 0.447 & 2.000 \\
+1 & 0.866 & 0.625 & 1.387 \\
+2 & 0.943 & 0.755 & 1.248 \\
+3 & 0.992 & 0.916 & 1.083 \\
+4 & 1.000 & 0.988 & 1.011 \\
+5 & 1.000 & 1.000 & 1.000 \\
+\bottomrule
+\end{tabular}
+\caption{Hội tụ singular values qua các bước Newton--Schulz.}
+\label{tab:ns_convergence}
+\end{table}
+
+Sau 5 bước: $X_5 \approx \begin{bmatrix} 0.707 & -0.707 \\ 0.707 & 0.707 \end{bmatrix} = O_{\text{SVD}}$, khớp 99.99\%.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{svd_vs_newton_schulz.png}
+\caption{So sánh SVD exact vs Newton--Schulz: hội tụ singular values về 1.}
+\label{fig:svd_vs_ns}
+\end{figure}
+
+% ---------------------------------------------------------------
+\section{Tốc độ hội tụ}
+
+\begin{align}
+    \text{Standard NS (Quadratic)}: \quad &\|X_{k+1} - UV^T\| = O\left(\|X_k - UV^T\|^2\right) \\
+    \text{Cubic NS (Muon)}: \quad &\|X_{k+1} - UV^T\| = O\left(\|X_k - UV^T\|^3\right)
+\end{align}
+
+Ví dụ: error $0.1 \to 0.001 \to 10^{-9} \to 10^{-27}$ (cubic) vs $0.1 \to 0.01 \to 10^{-4}$ (quadratic).
+
+% ---------------------------------------------------------------
+\section{MuSGD --- Hybrid Optimizer trong YOLO26}
+
+MuSGD kết hợp SGD truyền thống với Muon:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Tham số} & \textbf{Optimizer} & \textbf{Lý do} \\
+\midrule
+BatchNorm weights & SGD & 1D, không cần trực giao hóa \\
+Conv weights ($\geq$ 2D) & SGD + Newton--Schulz & Ma trận 2D, hưởng lợi từ orthogonalization \\
+Bias & SGD & 1D vector \\
+\bottomrule
+\end{tabular}
+\caption{Phân nhóm tham số trong MuSGD.}
+\end{table}
+
+\begin{notebox}[Muon chỉ dùng cho ma trận 2D]
+Muon không hiệu quả trên vector 1D (bias, LayerNorm) do hiện tượng nhảy lố (oscillation) khi không có gradient thu hẹp. Chỉ áp dụng cho Linear, Attention, Conv weights.
+\end{notebox}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{muon_vs_sgd_matrix.png}
+\caption{So sánh hiệu ứng SGD vs Muon trên cập nhật ma trận trọng số.}
+\label{fig:muon_vs_sgd}
+\end{figure}
+
+% ---------------------------------------------------------------
+\section{Tóm tắt quy trình Muon}
+
+\begin{equation}
+    \underbrace{G}_{\text{gradient}} \xrightarrow{\text{normalize}} X_0 = \frac{G}{\|G\|_F} \xrightarrow[\text{T=5 iterations}]{\text{Newton-Schulz}} X_T \approx UV^T = O
+\end{equation}
+
+\begin{equation}
+    W_{t+1} = W_t - \eta \cdot O \quad \text{(mọi } \sigma_i(O) = 1, \; \kappa = 1\text{)}
+\end{equation}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.7\textwidth]{svd_step_by_step.png}
+\caption{SVD step-by-step: Xoay ($V^T$) $\to$ Co giãn ($\Sigma$) $\to$ Xoay ($U$).}
+\label{fig:svd_steps}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.6\textwidth]{frobenius_norm_why.png}
+\caption{Tại sao chuẩn hóa Frobenius: đảm bảo singular values $\leq 1$ cho hội tụ.}
+\label{fig:frobenius}
+\end{figure}

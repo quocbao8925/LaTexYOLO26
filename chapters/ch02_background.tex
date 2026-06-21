@@ -1,0 +1,250 @@
+% ============================================================
+% CHƯƠNG 2: CƠ SỞ LÝ THUYẾT
+% ============================================================
+\chapter{Cơ sở lý thuyết}
+\label{ch:background}
+
+\section{Tổng quan Object Detection}
+\label{sec:bg_objdet}
+
+Object Detection là bài toán kết hợp \textit{phân loại} (classification) và \textit{định vị} (localization) --- xác định vị trí đối tượng trong ảnh thông qua bounding box.
+
+\subsection{Phân loại kiến trúc}
+
+\begin{itemize}
+    \item \textbf{Two-stage detectors} (Faster R-CNN~\cite{fasterrcnn}): Đề xuất vùng ứng viên rồi phân loại. Độ chính xác cao nhưng chậm.
+    \item \textbf{One-stage detectors} (YOLO, SSD): Dự đoán box và lớp trong một forward pass. Nhanh, phù hợp real-time.
+\end{itemize}
+
+Phân loại theo anchor:
+\begin{itemize}
+    \item \textbf{Anchor-based}: Sử dụng anchor boxes với kích thước định trước.
+    \item \textbf{Anchor-free}: Trực tiếp dự đoán tọa độ, không cần anchor. \yolo sử dụng anchor-free.
+\end{itemize}
+
+% ---------------------------------------------------------------
+\section{Intersection over Union (IoU)}
+\label{sec:iou}
+
+\begin{conceptbox}[Khái niệm: IoU]
+IoU đo mức độ trùng khớp giữa hộp dự đoán $B_p$ và hộp thực tế $B_{gt}$:
+\begin{equation}
+    \text{IoU} = \frac{|B_p \cap B_{gt}|}{|B_p \cup B_{gt}|} = \frac{\text{Diện tích giao}}{\text{Diện tích hợp}}
+    \label{eq:iou}
+\end{equation}
+IoU $\in [0, 1]$: giá trị 0 = không giao nhau, giá trị 1 = trùng khớp hoàn toàn.
+\end{conceptbox}
+
+\textbf{Tính toán cụ thể:} Cho hai box ở dạng $(x_1, y_1, x_2, y_2)$:
+\begin{align}
+x_{\text{inter}}^{\min} &= \max(x_1^{(p)}, x_1^{(gt)}), \quad y_{\text{inter}}^{\min} = \max(y_1^{(p)}, y_1^{(gt)}) \\
+x_{\text{inter}}^{\max} &= \min(x_2^{(p)}, x_2^{(gt)}), \quad y_{\text{inter}}^{\max} = \min(y_2^{(p)}, y_2^{(gt)}) \\
+\text{Inter} &= \max(x_{\text{inter}}^{\max} - x_{\text{inter}}^{\min}, 0) \times \max(y_{\text{inter}}^{\max} - y_{\text{inter}}^{\min}, 0) \\
+\text{Union} &= \text{Area}(B_p) + \text{Area}(B_{gt}) - \text{Inter}
+\end{align}
+
+% ---------------------------------------------------------------
+\subsection{Generalized IoU (GIoU)}
+\label{sec:giou}
+
+GIoU~\cite{giou} giải quyết vấn đề IoU = 0 khi hai box không giao nhau:
+\begin{equation}
+    \text{GIoU} = \text{IoU} - \frac{|C \setminus (B_p \cup B_{gt})|}{|C|}
+\end{equation}
+$C$ là hình chữ nhật nhỏ nhất chứa cả $B_p$ và $B_{gt}$. GIoU $\in [-1, 1]$.
+
+\subsection{Distance IoU (DIoU)}
+\label{sec:diou}
+
+DIoU~\cite{ciou} thêm penalty dựa trên khoảng cách tâm:
+\begin{equation}
+    \text{DIoU} = \text{IoU} - \frac{\rho^2(\bm{b}_p, \bm{b}_{gt})}{c^2}
+\end{equation}
+$\rho(\bm{b}_p, \bm{b}_{gt})$ là khoảng cách Euclidean giữa tâm hai box, $c$ là đường chéo của box bao $C$.
+
+\subsection{Complete IoU (CIoU)}
+\label{sec:ciou}
+
+\begin{conceptbox}[Khái niệm: CIoU --- YOLO26 sử dụng CIoU làm loss chính]
+CIoU~\cite{ciou} mở rộng IoU với penalty khoảng cách tâm và tỷ lệ khung hình:
+\begin{equation}
+    \text{CIoU} = \text{IoU} - \frac{\rho^2(\bm{b}_p, \bm{b}_{gt})}{c^2} - \alpha v
+    \label{eq:ciou}
+\end{equation}
+trong đó:
+\begin{align}
+    v &= \frac{4}{\pi^2}\left(\arctan\frac{w_{gt}}{h_{gt}} - \arctan\frac{w_p}{h_p}\right)^2 \\
+    \alpha &= \frac{v}{(1 - \text{IoU}) + v}
+\end{align}
+$v$ đo sự khác biệt tỷ lệ khung hình, $\alpha$ là trọng số cân bằng.
+\end{conceptbox}
+
+% ---------------------------------------------------------------
+\section{Precision, Recall và mAP}
+\label{sec:metrics}
+
+\begin{equation}
+    \text{Precision} = \frac{TP}{TP + FP}, \quad
+    \text{Recall} = \frac{TP}{TP + FN}
+    \label{eq:precision_recall}
+\end{equation}
+
+$TP$ = True Positive (dự đoán đúng), $FP$ = False Positive (dự đoán sai), $FN$ = False Negative (bỏ sót). Một dự đoán được coi là $TP$ khi IoU $\geq$ ngưỡng (thường 0.50).
+
+\textbf{Average Precision (AP)}: Diện tích dưới đường cong Precision-Recall, nội suy 101 điểm.
+
+\begin{equation}
+    \text{mAP} = \frac{1}{N_c} \sum_{i=1}^{N_c} \text{AP}_i
+    \label{eq:map}
+\end{equation}
+
+\begin{itemize}
+    \item \textbf{mAP@50}: AP tại ngưỡng IoU $\geq 0.50$.
+    \item \textbf{mAP@50-95}: Trung bình AP tại 10 ngưỡng IoU từ 0.50 đến 0.95 (bước 0.05).
+\end{itemize}
+
+\textbf{Fitness metric} của YOLO26: $\text{fitness} = 0.1 \times \text{mAP50} + 0.9 \times \text{mAP50-95}$.
+
+% ---------------------------------------------------------------
+\section{Non-Maximum Suppression (NMS)}
+\label{sec:nms}
+
+\begin{conceptbox}[Khái niệm: NMS]
+NMS là bước hậu xử lý loại bỏ các box trùng lặp:
+\begin{enumerate}
+    \item Sắp xếp detections theo confidence giảm dần
+    \item Chọn detection có score cao nhất, thêm vào kết quả
+    \item Loại bỏ tất cả detections có IoU $>$ ngưỡng (thường 0.45)
+    \item Lặp lại cho đến hết
+\end{enumerate}
+\textbf{Hạn chế}: Tốn thời gian $O(n^2)$, cần chọn ngưỡng thủ công, có thể loại bỏ nhầm detections hợp lệ khi đối tượng chồng lấp. \textbf{YOLO26 loại bỏ hoàn toàn NMS} nhờ cơ chế O2O head.
+\end{conceptbox}
+
+% ---------------------------------------------------------------
+\section{Tích chập (Convolution)}
+\label{sec:conv}
+
+Phép tích chập 2D là phép toán cơ bản trong mạng neural xử lý ảnh:
+\begin{equation}
+    y(i,j) = \sum_{m=0}^{k-1} \sum_{n=0}^{k-1} x(i+m, j+n) \cdot w(m,n) + b
+    \label{eq:conv}
+\end{equation}
+
+\textbf{Autopadding}: Tự động tính padding $p = \lfloor k/2 \rfloor$ để giữ kích thước spatial khi stride = 1.
+
+\textbf{Depthwise Convolution (DWConv)}: Conv với $\text{groups} = \gcd(c_1, c_2)$, xử lý từng channel độc lập. Giảm tham số:
+\begin{equation}
+    \text{Params}_{\text{DW}} = c_1 \times k^2 \quad \text{vs} \quad \text{Params}_{\text{std}} = c_1 \times c_2 \times k^2
+\end{equation}
+
+% ---------------------------------------------------------------
+\section{Batch Normalization}
+\label{sec:batchnorm}
+
+BN~\cite{batchnorm} chuẩn hóa đầu ra theo batch, ổn định quá trình huấn luyện:
+\begin{equation}
+    \hat{x}_i = \frac{x_i - \mu_B}{\sqrt{\sigma_B^2 + \epsilon}} \cdot \gamma + \beta
+    \label{eq:batchnorm}
+\end{equation}
+$\mu_B$, $\sigma_B^2$ là trung bình và phương sai theo batch. $\gamma$, $\beta$ là tham số học được.
+
+% ---------------------------------------------------------------
+\section{Hàm kích hoạt SiLU}
+\label{sec:silu}
+
+SiLU~\cite{silu} (Sigmoid Linear Unit) hay Swish:
+\begin{equation}
+    \text{SiLU}(x) = x \cdot \sigma(x) = \frac{x}{1 + e^{-x}}
+    \label{eq:silu}
+\end{equation}
+So với ReLU, SiLU cho gradient khác không ở vùng âm, giúp mô hình học tốt hơn. SiLU được sử dụng xuyên suốt trong \yolo.
+
+% ---------------------------------------------------------------
+\section{Binary Cross-Entropy (BCE) Loss}
+\label{sec:bce}
+
+\begin{equation}
+    \mathcal{L}_{\text{BCE}} = -\frac{1}{N}\sum_{i=1}^{N}\left[y_i \log(\hat{y}_i) + (1 - y_i)\log(1 - \hat{y}_i)\right]
+    \label{eq:bce}
+\end{equation}
+$y_i \in \{0, 1\}$ là nhãn thực, $\hat{y}_i = \sigma(z_i)$ là xác suất qua sigmoid. YOLO26 dùng \texttt{BCEWithLogitsLoss} kết hợp sigmoid+BCE trong một bước.
+
+% ---------------------------------------------------------------
+\section{Feature Pyramid Network (FPN) và PANet}
+\label{sec:fpn_pan}
+
+\textbf{FPN}~\cite{fpn}: Tạo đặc trưng đa tỷ lệ bằng đường truyền top-down (semantic mạnh $\to$ spatial chi tiết). Các tầng sâu (high-level) có semantic information nhưng spatial resolution thấp. FPN kết hợp cả hai.
+
+\textbf{PANet}~\cite{panet}: Bổ sung đường truyền bottom-up, giúp thông tin chi tiết từ tầng nông truyền xuống tầng sâu.
+
+\yolo sử dụng Neck kết hợp cả FPN (top-down) và PAN (bottom-up) để tổng hợp đặc trưng đa tỷ lệ. Chi tiết kiến trúc được trình bày trong \chapref{ch:architecture}.
+
+% ---------------------------------------------------------------
+\section{Residual Connection}
+\label{sec:residual}
+
+Residual connection~\cite{resnet} cho phép gradient lan truyền trực tiếp qua shortcut:
+\begin{equation}
+    y = F(x) + x
+\end{equation}
+Giải quyết vấn đề vanishing gradient khi mạng sâu. Được sử dụng trong Bottleneck, SPPF, PSABlock của YOLO26.
+
+% ---------------------------------------------------------------
+\section{Self-Attention}
+\label{sec:self_attention}
+
+Multi-Head Self-Attention~\cite{attention} cho phép mỗi vị trí trên feature map ``nhìn'' toàn bộ các vị trí khác:
+\begin{align}
+    \text{Attention}(Q, K, V) &= \text{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right) V
+\end{align}
+$Q$, $K$, $V$ là Query, Key, Value. $d_k$ là chiều Key. Softmax chuẩn hóa attention weights. YOLO26 dùng self-attention ở tầng P5 (C2PSA, PSABlock) nơi feature map nhỏ ($10 \times 10$).
+
+% ---------------------------------------------------------------
+\section{Anchor Points vs Anchor Boxes}
+\label{sec:anchor_concept}
+
+\begin{conceptbox}[Anchor Point --- Kiến trúc Anchor-free]
+YOLO26 là kiến trúc \textbf{anchor-free}. Mỗi ô trên feature map có \textbf{một điểm neo (anchor point)} tại tâm, không có kích thước sẵn. Model dự đoán 4 khoảng cách $(l, t, r, b)$ từ anchor point đến 4 cạnh bounding box:
+\begin{equation}
+    \text{anchor}_{i,j} = (j + 0.5, \; i + 0.5), \quad i \in [0, H), \; j \in [0, W)
+\end{equation}
+Giải mã bounding box:
+\begin{equation}
+    x_1 = a_x - l, \quad y_1 = a_y - t, \quad x_2 = a_x + r, \quad y_2 = a_y + b
+\end{equation}
+\end{conceptbox}
+
+% ---------------------------------------------------------------
+\section{Dòng YOLO --- Lịch sử phát triển}
+\label{sec:yolo_history}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{lll}
+\toprule
+\textbf{Phiên bản} & \textbf{Năm} & \textbf{Đóng góp chính} \\
+\midrule
+YOLOv1 & 2016 & Single-shot detection, Darknet backbone \\
+YOLOv2--v3 & 2017--18 & Multi-scale prediction, Darknet-53 \\
+YOLOv4--v5 & 2020 & CSP backbone, Mosaic augmentation, PANet \\
+YOLOX & 2021 & Decoupled Head, Anchor-free \\
+YOLOv8 & 2023 & DFL (Distribution Focal Loss), C2f block \\
+YOLO11 & 2024 & C3k2, C2PSA, multi-task \\
+\textbf{YOLO26} & \textbf{2025} & NMS-free (O2M/O2O), ProgLoss, MuSGD \\
+\bottomrule
+\end{tabular}
+\caption{Lịch sử phát triển dòng YOLO.}
+\label{tab:yolo_history}
+\end{table}
+
+% ---------------------------------------------------------------
+\section{Edge Computing và Raspberry Pi 5}
+\label{sec:edge}
+
+\textbf{Edge Computing} xử lý dữ liệu tại thiết bị đầu cuối, giảm độ trễ và tăng bảo mật. \rpi~\cite{rpi5} sử dụng CPU ARM Cortex-A76 @ 2.4GHz, 4/8GB RAM.
+
+\section{NCNN Framework}
+\label{sec:ncnn}
+
+NCNN~\cite{ncnn} là framework suy luận viết bằng C++, tối ưu NEON/SIMD cho ARM. So với TFLite~\cite{kltn_tiennhiem}, NCNN nhanh hơn trên CPU ARM nhờ tối ưu trực tiếp.

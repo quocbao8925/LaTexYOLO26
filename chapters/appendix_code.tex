@@ -1,0 +1,108 @@
+% ============================================================
+% PHỤ LỤC: CODE SNIPPETS
+% ============================================================
+\chapter{Phụ lục: Code nguồn chính}
+\label{ch:appendix}
+
+\section{Kiến trúc YOLO26n}
+
+\begin{lstlisting}[caption={build\_yolo26n --- Xây dựng model YOLO26 scale nano}]
+def build_yolo26n(nc=80):
+    d, w, mc = 0.50, 0.25, 1024
+    def ch(c): return max(round(min(c, mc) * w), 1) & ~7
+    def rep(n): return max(round(n * d), 1)
+
+    backbone = nn.ModuleList([
+        Conv(3,      ch(64),  3, 2),      # 0 P1/2
+        Conv(ch(64), ch(128), 3, 2),      # 1 P2/4
+        C3k2(ch(128),ch(256),rep(2),False,0.25),
+        Conv(ch(256),ch(256), 3, 2),      # 3 P3/8
+        C3k2(ch(256),ch(512),rep(2),False,0.25),
+        Conv(ch(512),ch(512), 3, 2),      # 5 P4/16
+        C3k2(ch(512),ch(512),rep(2),True),
+        Conv(ch(512),ch(1024),3, 2),      # 7 P5/32
+        C3k2(ch(1024),ch(1024),rep(2),True),
+        SPPF(ch(1024),ch(1024),5,3),
+        C2PSA(ch(1024),ch(1024),rep(2)),
+    ])
+    detect = Detect(nc=nc, reg_max=1, end2end=True,
+                    ch=(ch(256), ch(512), ch(1024)))
+    return backbone, head, detect
+\end{lstlisting}
+
+\section{make\_anchors}
+
+\begin{lstlisting}[caption={make\_anchors --- Tạo anchor points cho detection}]
+def make_anchors(feats, strides, grid_cell_offset=0.5):
+    anchor_points, stride_tensor = [], []
+    for feat, stride in zip(feats, strides):
+        _, _, h, w = feat.shape
+        sx = torch.arange(w, device=feat.device) + grid_cell_offset
+        sy = torch.arange(h, device=feat.device) + grid_cell_offset
+        sy, sx = torch.meshgrid(sy, sx, indexing='ij')
+        anchor_points.append(torch.stack([sx, sy], -1).view(-1, 2))
+        stride_tensor.append(torch.full((h*w, 1), stride, device=feat.device))
+    return torch.cat(anchor_points), torch.cat(stride_tensor)
+\end{lstlisting}
+
+\section{dist2bbox và bbox2dist}
+
+\begin{lstlisting}[caption={dist2bbox --- Chuyển LTRB distances thành bounding box}]
+def dist2bbox(distance, anchor_points, xywh=True, dim=-1):
+    lt, rb = distance.chunk(2, dim)
+    x1y1 = anchor_points - lt
+    x2y2 = anchor_points + rb
+    if xywh:
+        c_xy = (x1y1 + x2y2) / 2
+        wh   = x2y2 - x1y1
+        return torch.cat([c_xy, wh], dim)
+    return torch.cat([x1y1, x2y2], dim)
+
+def bbox2dist(anchor_points, bbox, reg_max=None):
+    x1y1, x2y2 = bbox.chunk(2, -1)
+    dist = torch.cat((anchor_points - x1y1, x2y2 - anchor_points), -1)
+    if reg_max is not None:
+        dist = dist.clamp_(0, reg_max - 0.01)
+    return dist
+\end{lstlisting}
+
+\section{Newton--Schulz Iteration}
+
+\begin{lstlisting}[caption={Newton--Schulz orthogonalization trong Muon optimizer}]
+def newton_schulz_orthogonalize(G, steps=5):
+    # Chuan hoa Frobenius
+    X = G / G.norm()  # ||X_0||_F = 1
+
+    # He so cubic convergence
+    a, b, c = 3.4445, -4.7750, 2.0315
+
+    for _ in range(steps):
+        A = X @ X.T
+        X = a * X + b * (A @ X) + c * (A @ (A @ X))
+
+    return X  # X ~ U V^T
+\end{lstlisting}
+
+\section{E2ELoss decay}
+
+\begin{lstlisting}[caption={E2ELoss --- Progressive decay O2M/O2O weights}]
+class E2ELoss:
+    def __init__(self, model):
+        self.o2m = 0.8
+        self.o2o = 0.2
+        self.final_o2m = 0.3
+
+    def decay(self, x):
+        return (max(1 - x / max(epochs - 1, 1), 0)
+                * (self.o2m_copy - self.final_o2m)
+                + self.final_o2m)
+
+    def update(self):
+        self.updates += 1
+        self.o2m = self.decay(self.updates)
+        self.o2o = max(1.0 - self.o2m, 0)
+        # ProgLoss: box/cls weight update
+        progress = min(self.updates / max(self.prog_epochs - 1, 1), 1.0)
+        self.one2many.box_weight = 7.5 + (3.75 - 7.5) * progress
+        self.one2many.cls_weight = 0.5 + (1.5 - 0.5) * progress
+\end{lstlisting}

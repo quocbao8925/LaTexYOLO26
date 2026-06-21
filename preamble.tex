@@ -1,0 +1,155 @@
+% ============================================================
+% PREAMBLE.TEX — Cấu hình packages và thiết lập chung
+% ============================================================
+
+% --- Encoding & Ngôn ngữ ---
+\usepackage[utf8]{inputenc}
+\usepackage[T5]{fontenc}
+\usepackage[vietnamese]{babel}
+\usepackage{csquotes}
+
+% --- Font & Math ---
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{tgtermes}
+\usepackage{newtxmath}
+\usepackage[scaled=0.90]{zi4}
+
+% --- Trang & Layout ---
+\usepackage[
+    a4paper,
+    left=3cm,
+    right=2cm,
+    top=2cm,
+    bottom=2cm,
+    headheight=20pt
+]{geometry}
+\usepackage{setspace}
+\onehalfspacing
+
+% --- Tiêu đề chương/section ---
+\usepackage{titlesec}
+\titleformat{\chapter}[display]
+    {\normalfont\Large\bfseries\centering}
+    {\MakeUppercase{\chaptertitlename}\ \thechapter}{12pt}{\LARGE}
+\titlespacing*{\chapter}{0pt}{-20pt}{20pt}
+
+% --- Header / Footer ---
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\leftmark}
+\fancyhead[R]{\small YOLO26 — Automated Speaker Tracking Camera}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% --- Hình ảnh ---
+\usepackage{graphicx}
+\graphicspath{{figures/}}
+\usepackage{float}
+\usepackage{subcaption}
+\usepackage{wrapfig}
+
+% --- Bảng ---
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{colortbl}
+
+% --- Toán ---
+\usepackage{bm}
+\usepackage{mathtools}
+
+% --- Algorithm ---
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\floatname{algorithm}{Thuật toán}
+
+% --- TikZ (removed to reduce compile time) ---
+% \usepackage{tikz}
+% \usetikzlibrary{shapes,arrows.meta,positioning,calc,fit,backgrounds}
+
+% --- Code listing ---
+\usepackage{listings}
+\usepackage{xcolor}
+
+\definecolor{codebg}{HTML}{F5F5F5}
+\definecolor{codegreen}{HTML}{28A745}
+\definecolor{codegray}{HTML}{6A737D}
+\definecolor{codepurple}{HTML}{6F42C1}
+\definecolor{codeblue}{HTML}{0366D6}
+
+\lstdefinestyle{pythonstyle}{
+    language=Python,
+    backgroundcolor=\color{codebg},
+    basicstyle=\small\ttfamily,
+    keywordstyle=\color{codepurple}\bfseries,
+    stringstyle=\color{codegreen},
+    commentstyle=\color{codegray}\itshape,
+    numberstyle=\tiny\color{codegray},
+    numbers=left,
+    numbersep=8pt,
+    breaklines=true,
+    frame=single,
+    rulecolor=\color{codegray!30},
+    tabsize=4,
+    showstringspaces=false,
+    captionpos=b,
+    morekeywords={self,True,False,None},
+}
+\lstset{style=pythonstyle}
+
+% --- Hyperlinks ---
+\usepackage[
+    colorlinks=true,
+    linkcolor=black,
+    citecolor=blue!70!black,
+    urlcolor=blue!70!black
+]{hyperref}
+
+% --- Tài liệu tham khảo ---
+\usepackage[
+    backend=biber,
+    style=ieee,
+    sorting=none,
+    language=english
+]{biblatex}
+\addbibresource{bibliography.bib}
+
+% --- Misc ---
+\usepackage{enumitem}
+\usepackage{caption}
+\captionsetup{
+    font=small,
+    labelfont=bf,
+    skip=8pt
+}
+\usepackage{pdfpages}
+\usepackage{appendix}
+\usepackage{framed}
+
+% --- Định nghĩa hộp concept (lightweight, no tcolorbox) ---
+\newenvironment{conceptbox}[1][]{%
+    \begin{framed}\noindent\textbf{#1}\par\smallskip\noindent\ignorespaces
+}{%
+    \end{framed}
+}
+
+\newenvironment{notebox}[1][]{%
+    \begin{framed}\noindent\textbf{#1}\par\smallskip\noindent\ignorespaces
+}{%
+    \end{framed}
+}
+
+% --- Custom commands ---
+\usepackage{xspace}
+\newcommand{\yolo}{YOLO26\xspace}
+\newcommand{\rpi}{Raspberry Pi 5\xspace}
+\newcommand{\figref}[1]{Hình~\ref{#1}}
+\newcommand{\tabref}[1]{Bảng~\ref{#1}}
+\newcommand{\eqnref}[1]{Công thức~(\ref{#1})}
+\newcommand{\chapref}[1]{Chương~\ref{#1}}
+\newcommand{\secref}[1]{Mục~\ref{#1}}
+\newcommand{\algoref}[1]{Thuật toán~\ref{#1}}

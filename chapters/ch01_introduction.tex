@@ -1,0 +1,28 @@
+% ============================================================
+% CHƯƠNG 1: GIỚI THIỆU
+% ============================================================
+\chapter{Giới thiệu}
+\label{ch:introduction}
+
+\section{Bối cảnh và động lực}
+
+Bài toán phát hiện đối tượng (Object Detection) yêu cầu mô hình đồng thời giải quyết hai tác vụ: \textbf{phân loại} --- xác định đối tượng thuộc lớp nào, và \textbf{định vị} --- xác định vị trí đối tượng qua bounding box.
+
+Dòng YOLO~\cite{yolov1} tạo bước đột phá khi đưa bài toán về dạng \textit{single-shot}. YOLO26~\cite{yolo26} là phiên bản mới nhất, loại bỏ hoàn toàn NMS nhờ Dual Detection Head (O2M/O2O), kết hợp Progressive Loss Balancing và MuSGD optimizer.
+
+\section{Mục tiêu đồ án}
+
+\begin{enumerate}[label=\arabic*)]
+    \item Nghiên cứu chi tiết kiến trúc YOLO26 từ Backbone đến Detection Head.
+    \item Xây dựng pipeline huấn luyện từ đầu bằng PyTorch thuần.
+    \item Huấn luyện và đánh giá mô hình trên tập COCO.
+    \item Triển khai trên \rpi qua NCNN~\cite{ncnn} đạt real-time detection.
+\end{enumerate}
+
+\section{Phạm vi}
+
+Tập trung vào detection (phát hiện người), mô hình YOLO26n với \texttt{reg\_max=1}, triển khai trên \rpi với CPU thuần. Chưa tích hợp ByteTrack~\cite{bytetrack} cho tracking.
+
+\section{Cấu trúc báo cáo}
+
+Báo cáo gồm 10 chương: Giới thiệu, Cơ sở lý thuyết, Kiến trúc YOLO26, Các module chi tiết, Hàm loss, Huấn luyện, Muon Optimizer, Dataset và Triển khai, Kết quả, Kết luận.

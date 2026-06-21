@@ -1,0 +1,294 @@
+% ============================================================
+% CHƯƠNG 4: CÁC KHỐI MODULE CHI TIẾT
+% ============================================================
+\chapter{Các khối Module chi tiết}
+\label{ch:modules}
+
+\section{Conv --- Convolution Block cơ bản}
+
+Khối Conv là đơn vị cơ bản nhất trong YOLO26:
+\begin{equation}
+    \text{Conv}(x) = \text{SiLU}\Big(\text{BatchNorm}\big(\text{Conv2d}(x)\big)\Big)
+\end{equation}
+
+\begin{lstlisting}[caption={Conv block trong yolo26\_modules.py}]
+class Conv(nn.Module):
+    default_act = nn.SiLU()
+    def __init__(self, c1, c2, k=1, s=1, p=None, g=1, d=1, act=True):
+        self.conv = nn.Conv2d(c1, c2, k, s, autopad(k,p,d), groups=g, bias=False)
+        self.bn = nn.BatchNorm2d(c2)
+        self.act = self.default_act if act is True else (act or nn.Identity())
+    def forward(self, x):
+        return self.act(self.bn(self.conv(x)))
+\end{lstlisting}
+
+\textbf{Conv 1x1} trộn channel tại cùng vị trí spatial. \textbf{Conv 3x3} trộn thông tin không gian (cạnh, biên, texture).
+
+% ---------------------------------------------------------------
+\section{DWConv --- Depthwise Convolution}
+
+DWConv là Conv với $\text{groups} = \gcd(c_1, c_2)$:
+\begin{equation}
+    \text{Params}_{\text{DW}} = c_1 \times k^2 \quad \ll \quad \text{Params}_{\text{std}} = c_1 \times c_2 \times k^2
+\end{equation}
+Được dùng trong classification head (cv3) để giảm chi phí tính toán.
+
+% ---------------------------------------------------------------
+\section{Bottleneck --- Khối Residual cơ bản}
+\label{sec:bottleneck}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.5\textwidth]{bottleneck_block.png}
+\caption{Sơ đồ khối Bottleneck với skip connection.}
+\label{fig:bottleneck}
+\end{figure}
+
+\begin{equation}
+    \text{Bottleneck}(x) = \begin{cases}
+    x + \text{cv2}(\text{cv1}(x)) & \text{nếu shortcut và } c_1 = c_2 \\
+    \text{cv2}(\text{cv1}(x)) & \text{ngược lại}
+    \end{cases}
+\end{equation}
+
+\begin{itemize}
+    \item $\text{cv1}$: Conv$(c_1, c\_, k_1)$ --- giảm kênh (squeeze) xuống $c\_ = \lfloor c_2 \times e \rfloor$
+    \item $\text{cv2}$: Conv$(c\_, c_2, k_2)$ --- khôi phục kênh (expand)
+    \item Skip connection: gradient lan truyền trực tiếp, giải quyết vanishing gradient
+\end{itemize}
+
+Ví dụ: input $[B, 128, 80, 80]$, $e=0.5$ $\to$ $c\_=64$ $\to$ output $[B, 128, 80, 80]$. H, W giữ nguyên.
+
+% ---------------------------------------------------------------
+\section{C2f --- Cross Stage Partial with 2 Convolutions}
+\label{sec:c2f}
+
+C2f~\cite{cspnet} kết hợp CSPNet với gradient flow hiệu quả:
+
+\begin{equation}
+    \text{C2f}(x) = \text{cv2}\Big(\text{Concat}\big[y_0, y_1, m_1(y_1), m_2(m_1(y_1)), \ldots\big]\Big)
+\end{equation}
+
+$[y_0, y_1] = \text{chunk}(\text{cv1}(x), 2)$ chia đầu ra thành 2 phần. Mỗi $m_i$ là Bottleneck.
+
+\textbf{Flow (n=2)}:
+\begin{verbatim}
+Input -> cv1 -> split -> [y0, y1]
+                              |
+                         Bottleneck(y1) -> y2
+                              |
+                         Bottleneck(y2) -> y3
+                              |
+              cat(y0, y1, y2, y3) -> cv2 -> Output
+\end{verbatim}
+
+\textbf{Ý nghĩa}: Giữ lại feature nông ($y_0$) lẫn feature sâu ($y_3$), rich gradient flow.
+
+% ---------------------------------------------------------------
+\section{C3 và C3k}
+\label{sec:c3_c3k}
+
+\textbf{C3} là khối CSP kiểu cũ: hai nhánh --- nhánh xử lý sâu (cv1 $\to$ bottleneck sequence) và nhánh đi thẳng (cv2) --- rồi concat và merge (cv3).
+
+\textbf{C3k} kế thừa C3 nhưng dùng Bottleneck với kernel $k\times k$ (thường $k=3$):
+\begin{equation}
+    \text{C3k}: \text{Bottleneck}_{\text{C3}} \text{ dùng } k=((1,1),(3,3)) \quad \to \quad \text{C3k dùng } k=(3,3)
+\end{equation}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.6\textwidth]{c3k_block.png}
+\caption{Sơ đồ khối C3k --- C3 với kernel 3x3 sâu hơn.}
+\label{fig:c3k}
+\end{figure}
+
+C3k nhìn vùng lân cận tốt hơn, học hình dạng/biên tốt hơn, nhưng nặng hơn Bottleneck đơn giản.
+
+% ---------------------------------------------------------------
+\section{C3k2 --- Khối quan trọng nhất trong YOLO26}
+\label{sec:c3k2}
+
+C3k2 kế thừa từ C2f nhưng thay danh sách block:
+
+\begin{equation}
+    m_i = \begin{cases}
+    \text{Bottleneck} + \text{PSABlock} & \text{nếu attn=True} \\
+    \text{C3k}(\text{kernel}=3) & \text{nếu c3k=True} \\
+    \text{Bottleneck tiêu chuẩn} & \text{mặc định}
+    \end{cases}
+\end{equation}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.6\textwidth]{c3k2_block.png}
+\caption{Sơ đồ khối C3k2 --- forward theo C2f, block bên trong tùy cấu hình.}
+\label{fig:c3k2}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{lcccl}
+\toprule
+\textbf{Layer} & \textbf{c3k} & \textbf{attn} & \textbf{Module bên trong} & \textbf{Vị trí} \\
+\midrule
+b2, b4 & False & False & Bottleneck đơn giản & Backbone đầu \\
+b6, b8 & True & False & C3k (3x3 sâu) & Backbone P4, P5 \\
+h13--h19 & True & False & C3k & Neck \\
+h22 & True & True & Bottleneck + PSABlock & Neck P5 output \\
+\bottomrule
+\end{tabular}
+\caption{Sử dụng C3k2 trong YOLO26.}
+\label{tab:c3k2_usage}
+\end{table}
+
+\textbf{Ví dụ shape}: C3k2($c_1=1024, c_2=256, n=2, \text{c3k}=\text{True}, e=0.5$):
+\begin{verbatim}
+[B, 1024, 80, 80] -> cv1 -> [B, 256, 80, 80]
+    -> split: y0 [B, 128, 80, 80], y1 [B, 128, 80, 80]
+    -> C3k(y1) -> y2 [B, 128, 80, 80]
+    -> C3k(y2) -> y3 [B, 128, 80, 80]
+    -> cat(y0,y1,y2,y3) -> [B, 512, 80, 80]
+    -> cv2 -> [B, 256, 80, 80]
+\end{verbatim}
+
+H, W giữ nguyên: tất cả conv dùng stride=1, padding autopad.
+
+% ---------------------------------------------------------------
+\section{SPPF --- Spatial Pyramid Pooling Fast}
+\label{sec:sppf}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.6\textwidth]{sppf_block.png}
+\caption{Sơ đồ khối SPPF --- MaxPool liên tiếp tạo multi-scale receptive field.}
+\label{fig:sppf}
+\end{figure}
+
+\begin{equation}
+    \text{SPPF}(x) = \text{cv2}\Big(\text{Concat}\big[y, \text{MP}(y), \text{MP}^2(y), \text{MP}^3(y)\big]\Big) + x
+\end{equation}
+
+$y = \text{cv1}(x)$, $\text{MP} = \text{MaxPool2d}(k=5, s=1, p=2)$. Shortcut: $\text{output} = \text{SPPF}(x) + x$.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{sppf_maxpool_matrices.png}
+\caption{Minh họa MaxPool 5x5 qua 3 lần liên tiếp --- tạo receptive field 5x5, 9x9, 13x13.}
+\label{fig:sppf_maxpool}
+\end{figure}
+
+\textbf{Ý nghĩa}: MaxPool liên tiếp 3 lần tạo 3 mức receptive field, giúp model ``nhìn'' context ở nhiều phạm vi mà không giảm resolution.
+
+\textbf{MaxPool không có tham số học}: chỉ lấy giá trị lớn nhất trong vùng $5\times5$.
+
+\textbf{So với SPP}: SPP dùng 3 kernel song song ($5, 9, 13$); SPPF dùng cùng kernel $5$ nối tiếp --- cho receptive field tương đương nhưng \textbf{nhanh hơn}.
+
+\begin{notebox}[Lưu ý: YOLO26 SPPF có act=False trên cv1]
+Khác với SPPF gốc (Ultralytics) dùng \texttt{act=True} (SiLU) trên cv1, YOLO26 dùng \texttt{act=False}. Điều này giảm representational power trước max-pooling.
+\end{notebox}
+
+% ---------------------------------------------------------------
+\section{Attention --- Multi-Head Self-Attention}
+\label{sec:attention}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.6\textwidth]{attention_block.png}
+\caption{Sơ đồ khối Attention với QKV projection và Position Encoding.}
+\label{fig:attention}
+\end{figure}
+
+\begin{align}
+    Q, K, V &= \text{split}(\text{QKV\_Conv}(x)) \\
+    \text{Attn} &= \text{softmax}\left(\frac{Q^T K}{\sqrt{d_k}}\right) \\
+    \text{output} &= V \cdot \text{Attn}^T + \text{PE}(V)
+\end{align}
+
+\begin{itemize}
+    \item \textbf{QKV Conv}: Conv $1\times1$ tạo đồng thời Q, K, V. Không activation.
+    \item $d_k = \texttt{head\_dim} \times \texttt{attn\_ratio}$: chiều Key giảm để tiết kiệm.
+    \item \textbf{PE}: DWConv $3\times3$ trên $V$ mã hóa vị trí spatial.
+    \item Chia $h$ heads, mỗi head xử lý $C/h$ kênh.
+\end{itemize}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{attention_flow_shapes_matrices.png}
+\caption{Chi tiết flow và shape biến đổi trong Attention module.}
+\label{fig:attention_flow}
+\end{figure}
+
+% ---------------------------------------------------------------
+\section{PSABlock --- Positional Self-Attention Block}
+\label{sec:psablock}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.5\textwidth]{psablock_block.png}
+\caption{Sơ đồ PSABlock: Attention + FFN với residual connections.}
+\label{fig:psablock}
+\end{figure}
+
+\begin{align}
+    x_1 &= x + \text{Attention}(x) \quad \text{(residual attention)} \\
+    x_2 &= x_1 + \text{FFN}(x_1) \quad \text{(residual FFN)}
+\end{align}
+
+FFN: Conv $1\times1$ ($c \to 2c$) $\to$ Conv $1\times1$ ($2c \to c$, act=False).
+
+% ---------------------------------------------------------------
+\section{C2PSA --- Channel-to-Positional Self-Attention}
+\label{sec:c2psa}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.5\textwidth]{c2psa_block.png}
+\caption{Sơ đồ C2PSA: CSP splitting + PSABlock.}
+\label{fig:c2psa}
+\end{figure}
+
+\begin{align}
+    a, b &= \text{split}(\text{cv1}(x)) \\
+    b' &= \text{PSABlock}(b) \\
+    \text{output} &= \text{cv2}(\text{Concat}[a, b'])
+\end{align}
+
+Chỉ nhánh $b$ qua attention (tốn kém), nhánh $a$ giữ nguyên. C2PSA chỉ dùng ở \textbf{tầng b10} (stride 32) vì $10\times10$, $N=100$ --- chi phí $O(N^2)$ chấp nhận được.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{sppf_c2psa_featuremap_transform.png}
+\caption{Biến đổi feature map qua SPPF và C2PSA.}
+\label{fig:sppf_c2psa_transform}
+\end{figure}
+
+\begin{notebox}[Tại sao chỉ dùng Attention ở P5?]
+Self-attention có complexity $O(N^2)$ với $N = H \times W$. Ở P5 ($10\times10$), $N=100$ --- rất nhẹ. Ở P3 ($40\times40$), $N=1600$ --- quá nặng cho model Nano. Tương tự, h22 dùng C3k2 với attn=True cũng ở scale P5.
+\end{notebox}
+
+% ---------------------------------------------------------------
+\section{DFL --- Distribution Focal Loss Module}
+\label{sec:dfl_module}
+
+DFL~\cite{dfl} biến regression thành classification trên \texttt{reg\_max} bins rời rạc:
+
+\begin{equation}
+    \hat{d} = \sum_{i=0}^{\texttt{reg\_max}-1} i \cdot p_i, \quad p_i = \text{softmax}(\text{logits})_i
+\end{equation}
+
+Weight của Conv $1\times1$ cố định là $[0, 1, 2, \ldots, \texttt{reg\_max}-1]$.
+
+\begin{notebox}[YOLO26 mặc định: reg\_max=1 --- không dùng DFL]
+Khi \texttt{reg\_max=1}, DFL được thay bằng \texttt{nn.Identity()}. Model dự đoán trực tiếp 4 giá trị $(l, t, r, b)$, output box head = 4 channels. Với \texttt{reg\_max=16}: 64 channels, chính xác hơn nhưng nặng hơn.
+\end{notebox}
+
+% ---------------------------------------------------------------
+\section{Tổng quan đồ thị module}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{special_blocks_overview.png}
+\caption{Tổng quan các khối đặc biệt: C3k2, SPPF, C2PSA trong kiến trúc YOLO26.}
+\label{fig:blocks_overview}
+\end{figure}

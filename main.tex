@@ -1,0 +1,46 @@
+% ============================================================
+% MAIN.TEX — YOLO26: Kiến Trúc Phát Hiện Đối Tượng End-to-End
+% Báo cáo nghiên cứu khoa học — Đồ án Automated Speaker Tracking Camera
+% ============================================================
+\documentclass[12pt,a4paper]{report}
+
+% Load preamble
+\input{preamble}
+
+\begin{document}
+
+% --- Trang bìa ---
+\input{titlepage}
+
+% --- Mục lục ---
+\pagenumbering{roman}
+\tableofcontents
+\newpage
+\listoffigures
+\newpage
+\listoftables
+\newpage
+
+% --- Nội dung chính ---
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+\input{chapters/ch01_introduction}
+\input{chapters/ch02_background}
+\input{chapters/ch03_yolo26_architecture}
+\input{chapters/ch04_modules}
+\input{chapters/ch05_loss_functions}
+\input{chapters/ch06_training}
+\input{chapters/ch07_muon_optimizer}
+\input{chapters/ch08_dataset_deployment}
+\input{chapters/ch09_results}
+\input{chapters/ch10_conclusion}
+
+% --- Phụ lục ---
+\appendix
+\input{chapters/appendix_code}
+
+% --- Tài liệu tham khảo ---
+\printbibliography[heading=bibintoc, title={Tài liệu tham khảo}]
+
+\end{document}

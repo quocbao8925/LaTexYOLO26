@@ -1,0 +1,40 @@
+% ============================================================
+% CHƯƠNG 10: KẾT LUẬN
+% ============================================================
+\chapter{Kết luận và hướng phát triển}
+\label{ch:conclusion}
+
+\section{Tóm tắt đóng góp}
+
+Đồ án đã thực hiện:
+
+\begin{enumerate}
+    \item \textbf{Nghiên cứu toàn diện YOLO26}: Phân tích chi tiết từng module (Conv, C3k2, SPPF, C2PSA, Attention), hàm loss (CIoU, BCE, DFL, TAL, E2ELoss, ProgLoss), và bộ tối ưu (MuSGD với Newton--Schulz).
+
+    \item \textbf{Xây dựng from-scratch}: Pipeline huấn luyện bằng PyTorch thuần, không phụ thuộc framework Ultralytics. Tổng cộng $\sim$7 module class + loss function + training loop.
+
+    \item \textbf{Huấn luyện và đánh giá}: Đạt mAP50 $\approx$ 0.78 trên tập COCO (person class) với YOLO26n scale nano, 320$\times$320 input.
+
+    \item \textbf{Triển khai Edge}: Chạy real-time trên \rpi với NCNN, CPU thuần, $\sim$45 FPS @ 320px --- không cần accelerator, chi phí \$0.
+\end{enumerate}
+
+\section{Hạn chế}
+
+\begin{itemize}
+    \item \texttt{reg\_max=1} làm giảm chất lượng box localization so với \texttt{reg\_max=16}
+    \item Data augmentation yếu (thiếu Mosaic, MixUp) gây overfitting từ epoch 65
+    \item E2ELoss decay quá mạnh (\texttt{final\_o2m=0.1})
+    \item Chưa tích hợp tracking (ByteTrack) và servo control
+    \item Cần re-verify FPS benchmark ở 320px
+\end{itemize}
+
+\section{Hướng phát triển}
+
+\begin{enumerate}
+    \item \textbf{ĐA2}: Tích hợp ByteTrack cho multi-object tracking + servo camera control
+    \item Nâng \texttt{reg\_max=16} để sử dụng DFL, cải thiện box precision
+    \item Thêm Mosaic augmentation --- giải pháp anti-overfitting mạnh nhất cho YOLO
+    \item Softening E2ELoss: \texttt{final\_o2m=0.3}, cosine annealing thay vì linear decay
+    \item Nghiên cứu YOLO26 scale small/medium cho accuracy cao hơn
+    \item Tối ưu NCNN: INT8 quantization, Vulkan GPU acceleration trên RPi 5
+\end{enumerate}
