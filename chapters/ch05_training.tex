@@ -205,6 +205,14 @@ ProgLoss tự động điều chỉnh trọng số đóng góp của hai nhánh 
     \beta = 1 - \alpha
 \end{equation}
 
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{progloss_curves.png}
+\caption{Biểu đồ thể hiện sự biến đổi tỷ lệ của hai nhánh O2M ($\alpha$) và O2O ($\beta$) theo tiến trình huấn luyện (ProgLoss).}
+\label{fig:progloss_curves}
+\end{figure}
+
+
 \begin{table}[H]
 \centering
 \caption{Lịch trình trọng số O2M/O2O qua epoch.}
@@ -258,6 +266,13 @@ MuSGD là bộ tối ưu lai kết hợp SGD và Muon~\cite{muon}:
 
 \textbf{Nguyên lý Muon}: Biến đổi ma trận gradient $G$ thành ma trận cập nhật trực giao $O = UV^T$ (từ phân tích SVD $G = U\Sigma V^T$, loại bỏ $\Sigma$). Điều này giúp tất cả các chiều không gian được đối xử công bằng, tránh tình trạng gradient zig-zag ở các chiều dốc.
 
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.75\textwidth]{muon_vs_sgd_matrix.png}
+\caption{So sánh bản chất cập nhật trọng số giữa bộ tối ưu SGD thông thường và Muon (trực giao hóa).}
+\label{fig:muon_vs_sgd}
+\end{figure}
+
 \textbf{Newton-Schulz thay SVD}: Trong thực tế, Muon không sử dụng SVD chính xác (quá chậm trên GPU) mà thay bằng thuật toán lặp Newton-Schulz:
 
 \begin{equation}
@@ -270,6 +285,27 @@ MuSGD là bộ tối ưu lai kết hợp SGD và Muon~\cite{muon}:
 \end{equation}
 
 \noindent với các hệ số $a = 3.4445$, $b = -4.7750$, $c = 2.0315$, chạy 5 bước lặp. Kết quả đạt ma trận xấp xỉ trực giao với sai số $\kappa \approx 1.01$ so với $\kappa = 1.0$ lý tưởng, nhưng nhanh hơn SVD từ 10--100 lần trên GPU.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.75\textwidth]{svd_vs_newton_schulz.png}
+\caption{Tốc độ hội tụ trực giao hóa của thuật toán lặp Newton-Schulz so với SVD.}
+\label{fig:svd_vs_ns}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.65\textwidth]{svd_step_by_step.png}
+\caption{Các bước phân tích ma trận trực giao hóa gradient từng bước.}
+\label{fig:svd_steps}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.55\textwidth]{frobenius_norm_why.png}
+\caption{Phân tích lý do sử dụng chuẩn Frobenius trong việc khởi tạo thuật toán lặp Newton-Schulz.}
+\label{fig:frobenius_norm}
+\end{figure}
 
 % ===================================================================
 \section{STAL (Small-Target-Aware Label Assignment)}
