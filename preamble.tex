@@ -1,19 +1,21 @@
 % ============================================================
 % PREAMBLE.TEX — Cấu hình packages và thiết lập chung
+% Đồ án 1: Automated Speaker Tracking Camera
 % ============================================================
 
 % --- Encoding & Ngôn ngữ ---
 \usepackage[utf8]{inputenc}
-\usepackage[T5]{fontenc}
-\usepackage[vietnamese]{babel}
-\usepackage{csquotes}
+\usepackage[T5]{fontenc}           % Font encoding cho tiếng Việt
+\usepackage[vietnamese]{babel}     % Hỗ trợ ngôn ngữ Việt
+\usepackage{csquotes}              % Load csquotes theo khuyến nghị của biblatex khi dùng babel
 
-% --- Font & Math ---
-\usepackage{amsmath}
-\usepackage{amssymb}
-\usepackage{tgtermes}
-\usepackage{newtxmath}
-\usepackage[scaled=0.90]{zi4}
+% --- Font & Math: Times New Roman & Mono ---
+\usepackage{amsmath}               % Load amsmath trước các gói math khác
+\usepackage{amssymb}               % Load amssymb trước newtxmath để tránh lỗi trùng lặp \Bbbk
+\usepackage{tgtermes}              % Text font: TeX Gyre Termes (Times-compatible, hỗ trợ đầy đủ tiếng Việt không lỗi/cảnh báo)
+\usepackage{newtxmath}             % Math font: Times-compatible
+\usepackage[scaled=0.90]{zi4}      % Monospace font: Inconsolata (hỗ trợ đầy đủ các ký tự, tối ưu cho listings)
+
 
 % --- Trang & Layout ---
 \usepackage[
@@ -22,10 +24,10 @@
     right=2cm,
     top=2cm,
     bottom=2cm,
-    headheight=20pt
+    headheight=20pt              % Tránh cảnh báo \headheight quá nhỏ từ fancyhdr
 ]{geometry}
 \usepackage{setspace}
-\onehalfspacing
+\onehalfspacing                    % Giãn dòng 1.5
 
 % --- Tiêu đề chương/section ---
 \usepackage{titlesec}
@@ -39,37 +41,31 @@
 \pagestyle{fancy}
 \fancyhf{}
 \fancyhead[L]{\small\leftmark}
-\fancyhead[R]{\small YOLO26 — Automated Speaker Tracking Camera}
+\fancyhead[R]{\small Đồ án 1 — Automated Speaker Tracking Camera}
 \fancyfoot[C]{\thepage}
 \renewcommand{\headrulewidth}{0.4pt}
 
 % --- Hình ảnh ---
 \usepackage{graphicx}
 \graphicspath{{figures/}}
-\usepackage{float}
-\usepackage{subcaption}
-\usepackage{wrapfig}
+\usepackage{float}                 % [H] placement
+\usepackage{subcaption}            % subfigure
 
 % --- Bảng ---
-\usepackage{booktabs}
+\usepackage{booktabs}              % \toprule, \midrule, \bottomrule
 \usepackage{tabularx}
 \usepackage{multirow}
 \usepackage{array}
 \usepackage{longtable}
-\usepackage{colortbl}
 
 % --- Toán ---
-\usepackage{bm}
+\usepackage{bm}                    % Bold math (amsmath và amssymb đã được load ở đầu file)
 \usepackage{mathtools}
 
-% --- Algorithm ---
+% --- Algorithm (dùng cho pseudo-code TAL trong Chương 5) ---
 \usepackage{algorithm}
 \usepackage{algpseudocode}
 \floatname{algorithm}{Thuật toán}
-
-% --- TikZ (removed to reduce compile time) ---
-% \usepackage{tikz}
-% \usetikzlibrary{shapes,arrows.meta,positioning,calc,fit,backgrounds}
 
 % --- Code listing ---
 \usepackage{listings}
@@ -79,7 +75,6 @@
 \definecolor{codegreen}{HTML}{28A745}
 \definecolor{codegray}{HTML}{6A737D}
 \definecolor{codepurple}{HTML}{6F42C1}
-\definecolor{codeblue}{HTML}{0366D6}
 
 \lstdefinestyle{pythonstyle}{
     language=Python,
@@ -114,37 +109,23 @@
     backend=biber,
     style=ieee,
     sorting=none,
-    language=english
+    language=english             % Tránh lỗi/cảnh báo tiếng Việt không được biblatex hỗ trợ dịch nhãn
 ]{biblatex}
 \addbibresource{bibliography.bib}
 
 % --- Misc ---
-\usepackage{enumitem}
-\usepackage{caption}
+\usepackage{enumitem}              % Tùy chỉnh list
+\usepackage{caption}               % Tùy chỉnh caption
 \captionsetup{
     font=small,
     labelfont=bf,
     skip=8pt
 }
-\usepackage{pdfpages}
+\usepackage{pdfpages}              % Chèn trang PDF
 \usepackage{appendix}
-\usepackage{framed}
-
-% --- Định nghĩa hộp concept (lightweight, no tcolorbox) ---
-\newenvironment{conceptbox}[1][]{%
-    \begin{framed}\noindent\textbf{#1}\par\smallskip\noindent\ignorespaces
-}{%
-    \end{framed}
-}
-
-\newenvironment{notebox}[1][]{%
-    \begin{framed}\noindent\textbf{#1}\par\smallskip\noindent\ignorespaces
-}{%
-    \end{framed}
-}
 
 % --- Custom commands ---
-\usepackage{xspace}
+\usepackage{xspace}                % Load xspace trước khi định nghĩa lệnh dùng nó
 \newcommand{\yolo}{YOLO26\xspace}
 \newcommand{\rpi}{Raspberry Pi 5\xspace}
 \newcommand{\figref}[1]{Hình~\ref{#1}}

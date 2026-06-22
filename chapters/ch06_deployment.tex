@@ -1,0 +1,121 @@
+% ============================================================
+% CHƯƠNG 6: TRIỂN KHAI TRÊN RASPBERRY PI 5
+% ============================================================
+\chapter{Triển khai trên Raspberry Pi 5}
+\label{ch:deployment}
+
+\section{Phần cứng}
+\label{sec:deploy_hardware}
+
+\begin{table}[H]
+    \centering
+    \caption{Cấu hình phần cứng hệ thống}
+    \label{tab:hardware}
+    \begin{tabularx}{\textwidth}{lX}
+        \toprule
+        \textbf{Thành phần} & \textbf{Chi tiết} \\
+        \midrule
+        Bo mạch       & Raspberry Pi 5 Model B \\
+        CPU           & Broadcom BCM2712, Quad-core ARM Cortex-A76 @ 2.4GHz \\
+        RAM           & 4GB LPDDR4X \\
+        AI Accelerator & \textbf{Không có} (không sử dụng Google Coral, Hailo, hay bất kỳ NPU nào) \\
+        Hệ điều hành  & Raspberry Pi OS (Linux) \\
+        \bottomrule
+    \end{tabularx}
+\end{table}
+
+Điểm đặc biệt của đồ án này là hệ thống được triển khai trên \rpi với cấu hình \textbf{tối thiểu} --- chỉ 4GB RAM và \textbf{không có bộ tăng tốc AI chuyên dụng}. So với nghiên cứu tiền nhiệm~\cite{kltn_tiennhiem} sử dụng RPi 5 8GB kết hợp USB Google Coral TPU, hệ thống của nhóm giảm đáng kể chi phí và độ phức tạp phần cứng.
+
+\section{Phần mềm và kết nối}
+\label{sec:deploy_software}
+
+\begin{itemize}
+    \item \textbf{Runtime}: NCNN~\cite{ncnn} --- framework inference tối ưu cho ARM, viết bằng C++, tận dụng NEON/SIMD.
+    \item \textbf{Kết nối}: SSH từ laptop Windows qua WiFi. Trong trường hợp không cùng mạng LAN, sử dụng Tailscale để tạo VPN peer-to-peer.
+    \item \textbf{Điều kiện benchmark}: Tắt hoàn toàn GUI (headless), chỉ chạy detection pipeline.
+\end{itemize}
+
+\section{Benchmark FPS}
+\label{sec:deploy_benchmark}
+
+Kết quả đo FPS trên \rpi 4GB, định dạng NCNN, chế độ detection-only (tắt GUI):
+
+\begin{table}[H]
+    \centering
+    \caption{Benchmark FPS trên Raspberry Pi 5 (NCNN, detection-only, tắt GUI)}
+    \label{tab:fps_benchmark}
+    \begin{tabular}{llr}
+        \toprule
+        \textbf{Model} & \textbf{Resolution} & \textbf{Avg FPS} \\
+        \midrule
+        \textbf{YOLO26 NCNN} & \textbf{320} & \textbf{45.61\textsuperscript{*}} \\
+        YOLO26 NCNN           & 480           & 26.67 \\
+        YOLO26 NCNN           & 640           & 15.09 \\
+        \midrule
+        YOLOv8 NCNN           & 320           & 44.36 \\
+        YOLOv8 NCNN           & 480           & 25.26 \\
+        YOLOv8 NCNN           & 640           & 13.90 \\
+        \bottomrule
+    \end{tabular}
+    
+    \vspace{4pt}
+    \small\textsuperscript{*} Con số 45.61 FPS cần được xác minh lại (re-verify) trong các thí nghiệm tiếp theo.
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{fps_benchmark.png}
+    \caption{So sánh FPS giữa YOLO26 NCNN và YOLOv8 NCNN trên Raspberry Pi 5 ở các độ phân giải đầu vào 320, 480, 640.}
+    \label{fig:fps_benchmark}
+\end{figure}
+
+\textbf{Nhận xét}: 
+\begin{itemize}
+    \item \yolo nhanh hơn YOLOv8 ở mọi độ phân giải, tuy nhiên mức chênh lệch không quá lớn (do cùng scale nano, kiến trúc nền tương đồng).
+    \item FPS 45+ ở 320px đạt được nhờ 3 yếu tố: optimize đầu vào về $320 \times 320$, tắt GUI hoàn toàn, và NCNN runtime tối ưu cho ARM.
+    \item Ở 640px, FPS giảm xuống $\sim$15 --- vẫn đủ cho nhiều ứng dụng nhưng chưa đạt mức real-time mượt mà.
+\end{itemize}
+
+\section{So sánh với nghiên cứu tiền nhiệm}
+\label{sec:deploy_comparison}
+
+\begin{table}[H]
+    \centering
+    \caption{So sánh hệ thống triển khai với nghiên cứu tiền nhiệm~\cite{kltn_tiennhiem}}
+    \label{tab:comparison_prev}
+    \small
+    \begin{tabularx}{\textwidth}{lXX}
+        \toprule
+        \textbf{Tiêu chí} & \textbf{Khóa trước (2025)} & \textbf{Nhóm hiện tại (2026)} \\
+        \midrule
+        RPi model       & RPi 5, 8GB             & RPi 5, \textbf{4GB} \\
+        Accelerator     & USB Google Coral TPU   & \textbf{Không có} \\
+        Model           & YOLOv8\_n / YOLOv9\_t  & YOLO26n \\
+        Format          & TFLite INT8            & \textbf{NCNN} \\
+        Input           & 320$\times$320         & 320$\times$320 \\
+        Inference       & $\sim$15ms (V8\_n, Coral) & cần re-verify \\
+        Export pipeline & .pt$\to$ONNX$\to$TF$\to$TFLite$\to$EdgeTPU & .pt$\to$\textbf{NCNN} \\
+        Chi phí accelerator & $\sim$\$60         & \textbf{\$0} \\
+        \bottomrule
+    \end{tabularx}
+\end{table}
+
+Nhóm tiền nhiệm sử dụng RPi 5 8GB kết hợp USB Google Coral TPU, đạt inference time $\sim$15ms/frame (YOLOv8\_n, TFLite INT8, 320$\times$320). Nhóm hiện tại đạt hiệu năng detection tương đương trên CPU thuần của RPi 5 4GB mà không cần accelerator, nhờ kết hợp \yolo (NMS-free, Direct Regression) với NCNN runtime tối ưu cho ARM. Điều này giảm chi phí phần cứng và đơn giản hóa pipeline triển khai.
+
+\section{Demo}
+\label{sec:deploy_demo}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{demo_stream_640.png}
+    \caption{Demo nhận diện người trên Raspberry Pi 5 với camera 1280$\times$720, input resolution 640, đạt 18.9 FPS. Detection: \texttt{id:1 person 0.87}.}
+    \label{fig:demo_stream}
+\end{figure}
+
+% TODO: Bổ sung thêm demo screenshots/videos từ người bạn
+% - Demo ở 320px (FPS cao hơn)
+% - Demo ở nhiều bối cảnh khác nhau  
+% - Demo custom model (khi có)
+
+% TODO: Mô tả chi tiết inference pipeline trên RPi
+% (phần này chờ bổ sung thông tin từ người bạn demo)

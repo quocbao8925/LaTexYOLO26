@@ -1,0 +1,412 @@
+% ============================================================
+% CHƯƠNG 4: KIẾN TRÚC YOLO26
+% ============================================================
+\chapter{Kiến trúc mô hình YOLO26}
+\label{ch:architecture}
+
+Chương này trình bày chi tiết kiến trúc mô hình \yolo, bao gồm ba phần chính: Backbone (trích xuất đặc trưng), Neck (tổng hợp đặc trưng đa tỷ lệ), và Detection Head (dự đoán bounding box và lớp đối tượng). Nội dung được tổng hợp từ paper gốc~\cite{yolo26}, mã nguồn Ultralytics~\cite{ultralytics}, và quá trình nghiên cứu xây dựng lại mô hình từ đầu (from scratch) của nhóm.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{yolo26_architecture.png}
+    \caption{Sơ đồ khối tổng quát kiến trúc YOLO26. Đầu vào ảnh $3 \times 640 \times 640$ được xử lý qua Backbone (trích xuất đặc trưng), Neck (tổng hợp FPN+PAN), và Detection Head (Dual-Head O2M/O2O).}
+    \label{fig:yolo26_overview}
+\end{figure}
+
+% ===================================================================
+\section{Backbone}
+\label{sec:arch_backbone}
+
+Backbone của \yolo gồm 11 lớp (b0--b10) có nhiệm vụ trích xuất đặc trưng ảnh ở nhiều mức phân giải khác nhau.
+
+\subsection{Khối Conv cơ bản}
+
+Trong \yolo, mỗi khối \texttt{Conv} bao gồm ba phần: lớp tích chập (\texttt{Conv2d}), chuẩn hóa batch (\texttt{BatchNorm2d}), và hàm kích hoạt \texttt{SiLU}:
+
+\begin{lstlisting}[caption={Khối Conv cơ bản trong YOLO26}, label=lst:conv]
+class Conv(nn.Module):
+    def __init__(self, c1, c2, k=1, s=1, p=None, g=1):
+        self.conv = nn.Conv2d(c1, c2, k, s, autopad(k, p), groups=g, bias=False)
+        self.bn = nn.BatchNorm2d(c2)
+        self.act = nn.SiLU(inplace=True)
+    
+    def forward(self, x):
+        return self.act(self.bn(self.conv(x)))
+\end{lstlisting}
+
+Các lớp Conv đầu tiên (b0, b1, b3, b5, b7) sử dụng kernel $3 \times 3$ với stride $s=2$ để giảm kích thước không gian xuống một nửa ở mỗi bước.
+
+\textbf{Conv 1x1} trộn channel tại cùng vị trí spatial. \textbf{Conv 3x3} trộn thông tin không gian (cạnh, biên, texture).
+
+\textbf{DWConv --- Depthwise Convolution}: DWConv là Conv với $\text{groups} = \gcd(c_1, c_2)$, giảm đáng kể số tham số:
+\begin{equation}
+    \text{Params}_{\text{DW}} = c_1 \times k^2 \quad \ll \quad \text{Params}_{\text{std}} = c_1 \times c_2 \times k^2
+\end{equation}
+Được dùng trong classification head (cv3) để giảm chi phí tính toán.
+
+\subsection{Khối Bottleneck}
+\label{subsec:bottleneck}
+
+Bottleneck là block residual cơ bản, tạo đặc trưng $F(x)$ bằng 2 lớp Conv rồi tùy điều kiện cộng residual với đầu vào $x$:
+
+\begin{equation}
+    F(x) = \text{cv2}(\text{cv1}(x))
+    \label{eq:bottleneck_Fx}
+\end{equation}
+\begin{equation}
+    \text{Output} = \begin{cases}
+        x + F(x) & \text{nếu } \texttt{shortcut} = \texttt{True} \text{ và } c_1 = c_2 \\
+        F(x) & \text{ngược lại}
+    \end{cases}
+    \label{eq:bottleneck_output}
+\end{equation}
+
+\noindent trong đó:
+\begin{itemize}
+    \item \texttt{cv1}: Conv$(c_1, c\_, k_1, s=1)$ với $c\_ = \lfloor c_2 \times e \rfloor$ (kênh ẩn, $e$ là expansion ratio).
+    \item \texttt{cv2}: Conv$(c\_, c_2, k_2, s=1)$ với $\texttt{groups}=g$.
+    \item Nhánh skip chỉ kích hoạt khi $c_1 = c_2$ và \texttt{shortcut=True}.
+\end{itemize}
+
+\textbf{Tác dụng}: Giảm chi phí tính toán (nhờ expansion ratio $e < 1$), cho phép xây dựng mạng sâu hơn mà vẫn nhẹ, và giữ thông tin gốc nhờ nhánh residual giúp tránh vanishing gradient.
+
+\subsection{Khối C3k2}
+\label{subsec:c3k2}
+
+C3k2 là khối trộn đặc trưng chính trong \yolo, kế thừa từ C2f~\cite{cspnet} nhưng thay danh sách block bên trong:
+
+\begin{equation}
+    y_0, y_1 = \text{Split}(\text{cv1}(x))
+    \label{eq:c3k2_split}
+\end{equation}
+\begin{equation}
+    z_i = \text{Block}_i(z_{i-1}), \quad z_0 = y_1, \quad i = 1, \ldots, n
+    \label{eq:c3k2_blocks}
+\end{equation}
+\begin{equation}
+    \text{Output} = \text{cv2}\big(\text{cat}([y_0, y_1, z_1, \ldots, z_n])\big)
+    \label{eq:c3k2_output}
+\end{equation}
+
+Luồng xử lý: đầu vào qua \texttt{cv1} (Conv 1$\times$1, giảm kênh) $\to$ Split thành nhánh nông ($y_0$) và nhánh sâu ($y_1$) $\to$ nhánh sâu qua $n$ khối Block $\to$ Concat tất cả $\to$ \texttt{cv2} (Conv 1$\times$1, nén kênh).
+
+\textbf{Biến thể block bên trong}: Tùy thuộc vào 2 tham số boolean \texttt{attn} và \texttt{c3k}:
+
+\begin{enumerate}
+    \item \texttt{attn=True}: Block = Bottleneck + PSABlock (Position-Sensitive Attention).
+    \item \texttt{attn=False, c3k=True}: Block = C3k (kernel $k \times k$ tùy biến).
+    \item \texttt{attn=False, c3k=False}: Block = Bottleneck tiêu chuẩn.
+\end{enumerate}
+
+\begin{table}[H]
+\centering
+\small
+\caption{Sử dụng C3k2 tại các vị trí trong YOLO26.}
+\label{tab:c3k2_usage}
+\begin{tabular}{lcccl}
+\toprule
+\textbf{Layer} & \textbf{c3k} & \textbf{attn} & \textbf{Module bên trong} & \textbf{Vị trí} \\
+\midrule
+b2, b4 & False & False & Bottleneck đơn giản & Backbone đầu \\
+b6, b8 & True & False & C3k (3x3 sâu) & Backbone P4, P5 \\
+h13--h19 & True & False & C3k & Neck \\
+h22 & True & True & Bottleneck + PSABlock & Neck P5 output \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Khối C3k}
+
+C3k là biến thể của C3 sử dụng Bottleneck với kernel $k \times k$ (mặc định $k=3$):
+
+\begin{equation}
+    \text{deep} = m(\text{cv1}(x)), \quad
+    \text{shallow} = \text{cv2}(x)
+\end{equation}
+\begin{equation}
+    \text{Output} = \text{cv3}\big(\text{cat}([\text{deep}, \text{shallow}], \text{dim}=1)\big)
+\end{equation}
+
+\noindent trong đó $m$ là chuỗi $n$ khối Bottleneck với kernel $(k,k)$ thay vì mặc định $(1,3)$, giúp nhánh sâu xử lý không gian mạnh hơn.
+
+\subsection{Khối SPPF (Spatial Pyramid Pooling Fast)}
+\label{subsec:sppf}
+
+SPPF mở rộng vùng nhận cảm ngữ cảnh (receptive field) bằng cách áp dụng liên tiếp 3 lớp MaxPool $5 \times 5$ mà không thay đổi kích thước không gian $H, W$:
+
+\begin{equation}
+    y_0 = \text{cv1}(x), \quad
+    y_1 = \text{MaxPool}(y_0), \quad
+    y_2 = \text{MaxPool}(y_1), \quad
+    y_3 = \text{MaxPool}(y_2)
+    \label{eq:sppf}
+\end{equation}
+\begin{equation}
+    \text{Output} = \text{cv2}\big(\text{cat}([y_0, y_1, y_2, y_3])\big)
+\end{equation}
+
+Mỗi lần MaxPool $5 \times 5$ mở rộng vùng ngữ cảnh tương đương thêm 4 pixel. Qua 3 lần lặp, một điểm pixel trên đầu ra chứa thông tin tổng hợp từ vùng lân cận tương đương $13 \times 13$ pixel trên đầu vào. SPPF có tùy chọn nhánh shortcut để cộng residual.
+
+\textbf{So với SPP}: SPP dùng 3 kernel song song ($5, 9, 13$); SPPF dùng cùng kernel $5$ nối tiếp --- cho receptive field tương đương nhưng \textbf{nhanh hơn}.
+
+\subsection{Khối C2PSA (Channel-Split Position-Sensitive Attention)}
+\label{subsec:c2psa}
+
+C2PSA chia đôi kênh: một nhánh giữ nguyên đặc trưng cục bộ (CNN features), nhánh còn lại qua Attention để học ngữ cảnh xa:
+
+\begin{equation}
+    a, b = \text{Split}(\text{cv1}(x), \text{dim}=1)
+\end{equation}
+\begin{equation}
+    b' = \text{PSABlock}(b)
+\end{equation}
+\begin{equation}
+    \text{Output} = \text{cv2}\big(\text{cat}([a, b'], \text{dim}=1)\big)
+\end{equation}
+
+Nhánh $a$ bảo toàn đặc trưng chi tiết dạng CNN, nhánh $b$ qua PSABlock học mối quan hệ không gian xa. Nhờ đó, C2PSA kết hợp được cả thông tin cục bộ và ngữ cảnh toàn cục.
+
+Chỉ nhánh $b$ qua attention (tốn kém), nhánh $a$ giữ nguyên. C2PSA chỉ dùng ở \textbf{tầng b10} (stride 32) vì $10\times10$, $N=100$ --- chi phí $O(N^2)$ chấp nhận được. Ở P3 ($40\times40$), $N=1600$ --- quá nặng cho model Nano.
+
+\subsection{PSABlock (Position-Sensitive Attention Block)}
+
+PSABlock gồm hai phần nối tiếp, mỗi phần có nhánh residual:
+
+\begin{enumerate}
+    \item \textbf{Multi-Head Attention}: Tính toán ma trận Attention từ Query ($Q$), Key ($K$), Value ($V$):
+    \begin{equation}
+        \text{Attention}(Q, K, V) = \text{Softmax}\left(\frac{Q \cdot K^T}{\sqrt{d_k}}\right) \cdot V
+        \label{eq:attention}
+    \end{equation}
+    Kèm Position Encoding (PE) sử dụng Depthwise Conv $3 \times 3$.
+    
+    \item \textbf{FFN (Feed-Forward Network)}: Conv $1\times1$ ($c \to 2c$) $\to$ Conv $1\times1$ ($2c \to c$, act=False). Tăng kênh lên cao rồi nén ngược xuống nhằm làm giàu biểu diễn đặc trưng sau attention.
+\end{enumerate}
+
+\subsection{Bảng chi tiết các lớp Backbone}
+
+\begin{table}[H]
+\centering
+\small
+\caption{Chi tiết các lớp trong Backbone của YOLO26n (scale nano, ảnh $320\times320$).}
+\label{tab:backbone_layers}
+\begin{tabular}{clllll}
+\toprule
+\textbf{Layer} & \textbf{Module} & \textbf{Input} & \textbf{Output (n)} & \textbf{Key Args} & \textbf{Note} \\
+\midrule
+b0  & Conv   & $3\times320^2$ & $16\times160^2$ & $k\!=\!3, s\!=\!2$ & P1/2 \\
+b1  & Conv   & $16\times160^2$ & $32\times80^2$ & $k\!=\!3, s\!=\!2$ & P2/4 \\
+b2  & C3k2   & $32\times80^2$ & $64\times80^2$ & c3k=F, $e\!=\!0.25$ & \\
+b3  & Conv   & $64\times80^2$ & $64\times40^2$ & $k\!=\!3, s\!=\!2$ & \textbf{P3/8} \\
+b4  & C3k2   & $64\times40^2$ & $128\times40^2$ & c3k=F, $e\!=\!0.25$ & \\
+b5  & Conv   & $128\times40^2$ & $128\times20^2$ & $k\!=\!3, s\!=\!2$ & \textbf{P4/16} \\
+b6  & C3k2   & $128\times20^2$ & $128\times20^2$ & c3k=T & \\
+b7  & Conv   & $128\times20^2$ & $256\times10^2$ & $k\!=\!3, s\!=\!2$ & \textbf{P5/32} \\
+b8  & C3k2   & $256\times10^2$ & $256\times10^2$ & c3k=T & \\
+b9  & SPPF   & $256\times10^2$ & $256\times10^2$ & $k\!=\!5, n\!=\!3$ & \\
+b10 & C2PSA  & $256\times10^2$ & $256\times10^2$ & attention & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ===================================================================
+\section{Neck}
+\label{sec:arch_neck}
+
+Neck của \yolo sử dụng kiến trúc kết hợp FPN (top-down) và PAN (bottom-up) để tổng hợp đặc trưng đa tỷ lệ từ Backbone trước khi đưa vào Detection Head.
+
+\subsection{Top-Down Pathway (FPN)}
+
+Truyền semantic information từ tầng sâu (P5) xuống tầng nông (P3):
+
+\begin{enumerate}
+    \item Upsample b10 ($256 \times 10^2$) $\times 2 \to 256 \times 20^2$
+    \item Concat với b6 ($128 \times 20^2$) $\to 384 \times 20^2$
+    \item C3k2 $\to$ h13: $128 \times 20^2$
+    \item Upsample h13 $\times 2 \to 128 \times 40^2$
+    \item Concat với b4 ($128 \times 40^2$) $\to 256 \times 40^2$
+    \item C3k2 $\to$ h16: $64 \times 40^2$ \quad (P3 output)
+\end{enumerate}
+
+\subsection{Bottom-Up Pathway (PAN)}
+
+Truyền detail information từ tầng nông (P3) lên tầng sâu (P5):
+
+\begin{enumerate}
+    \item Conv stride-2: h16 ($64 \times 40^2$) $\to 64 \times 20^2$
+    \item Concat với h13 ($128 \times 20^2$) $\to 192 \times 20^2$
+    \item C3k2 $\to$ h19: $128 \times 20^2$ \quad (P4 output)
+    \item Conv stride-2: h19 ($128 \times 20^2$) $\to 128 \times 10^2$
+    \item Concat với b10 ($256 \times 10^2$) $\to 384 \times 10^2$
+    \item C3k2(attn=True) $\to$ h22: $256 \times 10^2$ \quad (P5 output)
+\end{enumerate}
+
+Neck tạo ra 3 đầu ra ở 3 mức phân giải:
+\begin{itemize}
+    \item \textbf{P3\_out} (h16): $80 \times 80$, stride 8 --- phát hiện vật thể \textbf{nhỏ}.
+    \item \textbf{P4\_out} (h19): $40 \times 40$, stride 16 --- phát hiện vật thể \textbf{trung bình}.
+    \item \textbf{P5\_out} (h22): $20 \times 20$, stride 32 --- phát hiện vật thể \textbf{lớn}.
+\end{itemize}
+
+\begin{table}[H]
+\centering
+\caption{Số anchor points tại mỗi scale detection (ảnh $320\times320$).}
+\label{tab:anchors}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Scale} & \textbf{Stride} & \textbf{Feature Map} & \textbf{Anchor Points} & \textbf{Phù hợp} \\
+\midrule
+P3 & 8  & $40\times40$  & 1600 & Vật nhỏ \\
+P4 & 16 & $20\times20$  & 400  & Vật vừa \\
+P5 & 32 & $10\times10$  & 100  & Vật lớn \\
+\midrule
+\multicolumn{3}{r}{\textbf{Tổng}} & \textbf{2100} & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ===================================================================
+\section{Detection Head: Dual-Head O2M/O2O}
+\label{sec:arch_head}
+
+\yolo sử dụng kiến trúc Dual-Head với hai nhánh dự đoán song song:
+
+\subsection{Nhánh cv2 --- Box Prediction}
+
+Dự đoán tọa độ bounding box thông qua 2 lớp Conv $3 \times 3$ và một lớp Conv $1 \times 1$ cuối:
+
+\begin{lstlisting}[caption={Nhánh cv2 (Box) trong Detection Head}, label=lst:cv2]
+self.cv2 = nn.ModuleList(
+    nn.Sequential(
+        Conv(x, c2, 3),                     # Conv 3x3
+        Conv(c2, c2, 3),                    # Conv 3x3
+        nn.Conv2d(c2, 4 * self.reg_max, 1)  # Conv 1x1 -> 4*reg_max
+    ) for x in ch
+)
+\end{lstlisting}
+
+Đầu ra: $4 \times \text{reg\_max}$ kênh. Với Direct Regression ($\text{reg\_max} = 1$), đầu ra chỉ có 4 kênh tương ứng 4 khoảng cách LTRB (left, top, right, bottom).
+
+\subsection{Nhánh cv3 --- Class Prediction}
+
+Dự đoán xác suất lớp đối tượng sử dụng Depthwise Conv để tối ưu tốc độ:
+
+\begin{lstlisting}[caption={Nhánh cv3 (Class) trong Detection Head}, label=lst:cv3]
+self.cv3 = nn.ModuleList(
+    nn.Sequential(
+        nn.Sequential(DWConv(x, x, 3), Conv(x, c3, 1)),  # DWConv + Conv
+        nn.Sequential(DWConv(c3, c3, 3), Conv(c3, c3, 1)),
+        nn.Conv2d(c3, self.nc, 1)  # Conv 1x1 -> nc classes
+    ) for x in ch
+)
+\end{lstlisting}
+
+\subsection{Cơ chế Dual-Head}
+
+\begin{table}[H]
+    \centering
+    \caption{So sánh nhánh O2M và O2O trong Dual-Head}
+    \label{tab:dual_head}
+    \begin{tabularx}{\textwidth}{lXX}
+        \toprule
+        \textbf{Đặc tính} & \textbf{O2M (One-to-Many)} & \textbf{O2O (One-to-One)} \\
+        \midrule
+        Khi nào dùng & Chỉ khi \textbf{huấn luyện} & Khi \textbf{suy luận} (và cả huấn luyện) \\
+        TAL topk     & $\text{topk} = 10$ & $\text{topk}_2 = 1$ \\
+        Số dự đoán / vật thể & Nhiều anchor $\to$ 1 vật thể & Đúng 1 anchor $\to$ 1 vật thể \\
+        Mục đích     & Tạo gradient dày đặc, đẩy nhanh tốc độ học & NMS-free, dự đoán sạch \\
+        Cần NMS?     & Có (khi suy luận đơn lẻ) & \textbf{Không} \\
+        \bottomrule
+    \end{tabularx}
+\end{table}
+
+Khi deploy thực tế, nhánh O2M bị loại bỏ hoàn toàn thông qua hàm \texttt{strip\_o2m()}, chỉ giữ lại nhánh O2O phục vụ suy luận trực tiếp.
+
+\begin{table}[H]
+\centering
+\caption{So sánh model trước và sau khi strip O2M.}
+\label{tab:strip_o2m}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Metric} & \textbf{Training (last.pt)} & \textbf{Inference (lite.pt)} & \textbf{Giảm} \\
+\midrule
+File size & 38.2 MB & 5.6 MB & $\sim$85\% \\
+Precision & FP32 & FP16 & 50\% \\
+O2M Head & Có & Stripped & -- \\
+Optimizer state & Có & Stripped & -- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ===================================================================
+\section{Box Decoding: Direct Regression}
+\label{sec:arch_box_decoding}
+
+\yolo sử dụng phương pháp hồi quy trực tiếp (Direct Regression) thay cho DFL~\cite{dfl}, giúp giảm đáng kể khối lượng tính toán:
+
+\begin{enumerate}[label=\textbf{Bước \arabic*:}]
+    \item \textbf{Feature Extraction}: Trích xuất đặc trưng qua Backbone và Neck.
+    \item \textbf{Tạo Anchor Grids}: Xác định tọa độ tâm $(c_x, c_y)$ cho mỗi ô lưới.
+    \item \textbf{Dự đoán LTRB}: Nhánh cv2 xuất ra 4 giá trị khoảng cách: $d_\text{left}$, $d_\text{top}$, $d_\text{right}$, $d_\text{bottom}$.
+    \item \textbf{Khôi phục tọa độ}:
+    \begin{equation}
+        x_\text{min} = c_x - d_\text{left}, \quad y_\text{min} = c_y - d_\text{top}
+    \end{equation}
+    \begin{equation}
+        x_\text{max} = c_x + d_\text{right}, \quad y_\text{max} = c_y + d_\text{bottom}
+    \end{equation}
+    \item \textbf{Rescale}: Nhân tọa độ với stride tương ứng để đưa về kích thước ảnh gốc.
+\end{enumerate}
+
+\subsection{So sánh Direct Regression và DFL}
+
+\begin{table}[H]
+    \centering
+    \caption{So sánh hồi quy trực tiếp (Direct Regression) và DFL}
+    \label{tab:direct_vs_dfl}
+    \begin{tabularx}{\textwidth}{lXX}
+        \toprule
+        \textbf{Đặc tính} & \textbf{Direct Regression} & \textbf{DFL} \\
+        \midrule
+        Cách tính & Xuất trực tiếp 4 giá trị $l, r, t, b$ & Softmax 16 giá trị/hướng, tổng trọng số \\
+        Kênh đầu ra & $4 \times 1 = 4$ & $4 \times 16 = 64$ \\
+        Ưu điểm & Tốc độ nhanh, đơn giản & Chính xác hơn ở biên mờ \\
+        Nhược điểm & Kém chính xác ở biên mờ & Softmax tốn CPU, gây nghẽn \\
+        \bottomrule
+    \end{tabularx}
+\end{table}
+
+\yolo bù đắp sự suy giảm độ chính xác của Direct Regression bằng cách đặt $\text{topk}=10$ ở nhánh O2M, tạo gradient dày đặc ép Backbone và Neck học đặc trưng sắc nét hơn.
+
+% ===================================================================
+\section{Phân tỷ lệ mô hình (Model Scaling)}
+\label{sec:arch_scaling}
+
+\yolo hỗ trợ nhiều biến thể kích thước thông qua 3 hệ số:
+
+\begin{table}[H]
+\centering
+\caption{Cấu hình Scale của YOLO26.}
+\label{tab:scales}
+\begin{tabular}{lcccl}
+\toprule
+\textbf{Scale} & \textbf{Depth} & \textbf{Width} & \textbf{Max Ch} & \textbf{Ghi chú} \\
+\midrule
+n (nano)   & 0.50 & 0.25 & 1024 & Nhỏ nhất, nhanh nhất \\
+s (small)  & 0.50 & 0.50 & 1024 & Cân bằng tốc độ/chính xác \\
+m (medium) & 0.50 & 1.00 & 512  & Trung bình \\
+l (large)  & 1.00 & 1.00 & 512  & Lớn \\
+x (xlarge) & 1.00 & 1.50 & 512  & Chính xác nhất \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Công thức tính kênh và lặp:}
+\begin{align}
+    \texttt{ch}(c) &= \texttt{make\_divisible}\left(\min(c, \texttt{max\_ch}) \times \texttt{width},\; 8\right) \label{eq:ch} \\
+    \texttt{rep}(n) &= \max\left(\text{round}(n \times \texttt{depth}),\; 1\right) \label{eq:rep}
+\end{align}
+
+Ví dụ scale nano: $\texttt{ch}(256) = \texttt{make\_divisible}(\min(256, 1024) \times 0.25, 8) = 64$.
+
+Trong đồ án, nhóm sử dụng biến thể \textbf{nano} (n) với tổng dung lượng weights khoảng 5.3MB, phù hợp cho triển khai trên \rpi.

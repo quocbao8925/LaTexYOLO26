@@ -1,0 +1,81 @@
+% ============================================================
+% CHƯƠNG 7: KẾT QUẢ & ĐÁNH GIÁ
+% ============================================================
+\chapter{Kết quả và đánh giá}
+\label{ch:results}
+
+\section{Tổng hợp kết quả huấn luyện}
+\label{sec:results_training}
+
+\begin{table}[H]
+    \centering
+    \caption{Tổng hợp kết quả huấn luyện các phiên bản YOLO26}
+    \label{tab:results_summary}
+    \begin{tabular}{lrrr}
+        \toprule
+        \textbf{Phiên bản} & \textbf{Epochs} & \textbf{mAP50} & \textbf{mAP50-95} \\
+        \midrule
+        YOLO26 gốc (Ultralytics) & 120 & \textbf{0.756} & \textbf{0.532} \\
+        YOLO26 Custom (1st run)  & 79  & 0.686          & ---            \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+Phiên bản Ultralytics đạt kết quả tốt hơn nhờ được huấn luyện đầy đủ 120 epochs với pretrained weights. Phiên bản custom vẫn đang trong quá trình hội tụ sau 79 epochs và dự kiến sẽ tiếp tục cải thiện.
+
+\section{Kết quả inference trên Raspberry Pi 5}
+\label{sec:results_inference}
+
+% TODO: Bổ sung kết quả inference chi tiết khi người bạn demo xong
+% - FPS detection-only ở 320px (re-verify)
+% - FPS detection-only ở 640px  
+% - FPS với custom model
+% - Inference time (ms) breakdown: preprocess + inference + postprocess
+
+Kết quả sơ bộ cho thấy \yolo NCNN đạt tốc độ detection-only $\sim$45 FPS\footnote{Con số cần được xác minh lại trong các thí nghiệm tiếp theo.} ở độ phân giải 320$\times$320 trên \rpi 4GB mà không cần accelerator.
+
+\section{Đánh giá}
+\label{sec:results_evaluation}
+
+\subsection{Thành tựu}
+
+\begin{enumerate}[label=\arabic*)]
+    \item \textbf{Nghiên cứu kiến trúc}: Nhóm đã nghiên cứu và trình bày chi tiết toàn bộ kiến trúc \yolo, từ Backbone đến Detection Head, bao gồm cả các cơ chế huấn luyện tiên tiến (ProgLoss, MuSGD, STAL).
+    
+    \item \textbf{Custom implementation}: Xây dựng thành công \yolo từ đầu (from scratch) bằng PyTorch thuần, đạt mAP50 = 0.686 sau 79 epochs --- chứng minh sự hiểu biết sâu về kiến trúc.
+    
+    \item \textbf{Triển khai edge}: Demo thành công detection trên \rpi 4GB không cần accelerator, với pipeline triển khai đơn giản (NCNN).
+    
+    \item \textbf{Dataset}: Xây dựng bộ dữ liệu COCO Person 320 gồm 49.811 ảnh huấn luyện, lớn hơn đáng kể so với khóa trước (2.207 ảnh).
+\end{enumerate}
+
+\subsection{Hạn chế}
+
+\begin{enumerate}[label=\arabic*)]
+    \item Chưa tích hợp thuật toán bám vết (tracking) --- hệ thống mới dừng ở mức detection.
+    \item Chưa có hệ thống điều khiển servo Pan-Tilt.
+    \item Custom model chưa hoàn tất huấn luyện đầy đủ (79/120+ epochs).
+    \item Chưa demo custom model trên \rpi.
+    \item Cần xác minh lại con số FPS benchmark.
+\end{enumerate}
+
+\section{Hướng phát triển}
+\label{sec:results_future}
+
+\subsection{Đồ án 2 (dự kiến)}
+
+\begin{itemize}
+    \item Tích hợp ByteTrack~\cite{bytetrack} để bám vết diễn giả liên tục.
+    \item Hoàn thiện custom \yolo và triển khai trên \rpi.
+    \item Thiết kế hệ thống điều khiển servo Pan-Tilt cơ bản.
+\end{itemize}
+
+\subsection{Khóa luận tốt nghiệp (dự kiến)}
+
+\begin{itemize}
+    \item Hoàn thiện toàn bộ pipeline: detection $\to$ tracking $\to$ PID servo control.
+    \item Xây dựng giao diện giám sát và điều khiển.
+    \item Truyền dẫn video thời gian thực qua mạng.
+    \item Tối ưu hóa mô hình cho các điều kiện ánh sáng và bối cảnh đa dạng.
+    \item Thu thập dataset thực tế tại giảng đường UIT.
+\end{itemize}

@@ -1,0 +1,346 @@
+% ============================================================
+% CHƯƠNG 5: TRAINING & TỐI ƯU
+% ============================================================
+\chapter{Huấn luyện và tối ưu mô hình}
+\label{ch:training}
+
+% ===================================================================
+\section{Huấn luyện YOLO26 gốc (Ultralytics)}
+\label{sec:train_ultralytics}
+
+\subsection{Thiết lập}
+
+Phiên bản đầu tiên sử dụng thư viện Ultralytics~\cite{ultralytics} để huấn luyện \yolo trên dataset COCO Person 320:
+
+\begin{lstlisting}[caption={Huấn luyện YOLO26 gốc với Ultralytics}, label=lst:train_ultra]
+from ultralytics import YOLO
+
+model = YOLO("yolo26n.pt")  # Pretrained nano
+model.train(
+    data="coco_person_320.yaml",
+    epochs=120,
+    imgsz=224,
+    batch=64,
+    project="TRACKING_YOLO26",
+    name="yolo26_224"
+)
+\end{lstlisting}
+
+\begin{table}[H]
+    \centering
+    \caption{Siêu tham số huấn luyện YOLO26 gốc}
+    \label{tab:hyperparams_ultra}
+    \begin{tabular}{lr}
+        \toprule
+        \textbf{Siêu tham số} & \textbf{Giá trị} \\
+        \midrule
+        Nền tảng         & Kaggle (GPU) \\
+        Mô hình cơ sở    & yolo26n.pt (pretrained) \\
+        Epochs            & 120 \\
+        Batch size        & 64 \\
+        Image size        & 224 $\times$ 224 \\
+        Learning rate (lr0) & 0.01 \\
+        LR final (lrf)    & 0.01 \\
+        Momentum          & 0.937 \\
+        Weight decay      & 0.0005 \\
+        Warmup epochs     & 3.0 \\
+        Box loss weight   & 7.5 \\
+        Cls loss weight   & 0.5 \\
+        DFL loss weight   & 1.5 \\
+        Mosaic            & 1.0 \\
+        Degrees (rotation)& 5.0 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsection{Kết quả}
+
+\begin{table}[H]
+    \centering
+    \caption{Kết quả huấn luyện YOLO26 gốc (epoch 120)}
+    \label{tab:results_ultra}
+    \begin{tabular}{lr}
+        \toprule
+        \textbf{Chỉ số} & \textbf{Giá trị} \\
+        \midrule
+        \textbf{mAP50}      & \textbf{0.756} \\
+        \textbf{mAP50-95}   & \textbf{0.532} \\
+        Precision            & 0.840 \\
+        Recall               & 0.645 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{loss_curves_ultra.png}
+    \caption{Biểu đồ loss curves trong quá trình huấn luyện YOLO26 gốc qua 120 epochs.}
+    \label{fig:loss_curves_ultra}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{confusion_matrix_ultra.png}
+    \caption{Ma trận nhầm lẫn (Confusion Matrix) của YOLO26 gốc trên tập validation.}
+    \label{fig:confusion_matrix_ultra}
+\end{figure}
+
+% ===================================================================
+\section{Custom YOLO26 from scratch}
+\label{sec:train_custom}
+
+\subsection{Động lực}
+
+Mục đích của việc xây dựng lại \yolo từ đầu (from scratch) là:
+\begin{enumerate}[label=\arabic*)]
+    \item \textbf{Hiểu sâu kiến trúc}: Nắm bắt chi tiết từng khối, từng phép toán trong mô hình thay vì chỉ sử dụng API có sẵn.
+    \item \textbf{Bổ trợ cho quá trình custom}: Tạo nền tảng để tùy biến mô hình (thay đổi scale, reg\_max, loss function, optimizer) trong các giai đoạn tiếp theo.
+\end{enumerate}
+
+Mã nguồn custom gồm 3 file chính:
+\begin{itemize}
+    \item \texttt{yolo26\_modules.py}: Kiến trúc mô hình (Backbone, Neck, Head, inference pipeline).
+    \item \texttt{yolo26\_loss.py}: Các hàm loss (E2ELoss, BboxLoss, TaskAlignedAssigner).
+    \item \texttt{train26.py}: Training loop, data augmentation, optimizer setup.
+\end{itemize}
+
+\subsection{Các tùy biến so với gốc}
+
+\begin{table}[H]
+    \centering
+    \caption{So sánh cấu hình YOLO26 gốc (Ultralytics) và custom}
+    \label{tab:custom_vs_original}
+    \begin{tabularx}{\textwidth}{lXX}
+        \toprule
+        \textbf{Thành phần} & \textbf{Gốc (Ultralytics)} & \textbf{Custom} \\
+        \midrule
+        Framework     & Ultralytics API & PyTorch thuần (from scratch) \\
+        reg\_max      & 1 (direct regression) & 1 (giữ nguyên) \\
+        Optimizer     & MuSGD & MuSGD (tự hiện thực) \\
+        ProgLoss      & Có & Có (tự hiện thực) \\
+        STAL          & Có & Có (tự hiện thực) \\
+        Scale         & Nano (n) & Nano (n) + custom u/t \\
+        \bottomrule
+    \end{tabularx}
+\end{table}
+
+% ===================================================================
+\section{Hàm mất mát (Loss Functions)}
+\label{sec:loss_functions}
+
+Tổng loss gồm 3 thành phần:
+\begin{equation}
+    \mathcal{L}_{\text{head}} = w_{\text{box}} \cdot \mathcal{L}_{\text{box}} + w_{\text{cls}} \cdot \mathcal{L}_{\text{cls}} + w_{\text{dfl}} \cdot \mathcal{L}_{\text{dfl}}
+    \label{eq:total_loss}
+\end{equation}
+
+\begin{table}[H]
+\centering
+\caption{Trọng số các thành phần loss (thay đổi theo ProgLoss).}
+\label{tab:loss_weights}
+\begin{tabular}{lcccl}
+\toprule
+\textbf{Thành phần} & \textbf{Source} & \textbf{$w$ đầu} & \textbf{$w$ cuối} & \textbf{Mục đích} \\
+\midrule
+$\mathcal{L}_{\text{box}}$ & cv2 $\to$ CIoU & 7.5 & 3.75 & Định vị (localization) \\
+$\mathcal{L}_{\text{cls}}$ & cv3 $\to$ BCE & 0.5 & 1.5 & Phân loại (classification) \\
+$\mathcal{L}_{\text{dfl}}$ & cv2 $\to$ DFL/L1 & 1.5 & 1.5 & Phân phối khoảng cách \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Box Loss --- CIoU Loss}: Xét cả khoảng cách tâm, diện tích giao, và tỷ lệ khung hình --- gradient tốt hơn IoU thuần:
+\begin{equation}
+    \mathcal{L}_{\text{box}} = \frac{\sum_{i \in \text{fg}} (1 - \text{CIoU}_i) \cdot w_i}{\sum_j t_j}
+\end{equation}
+
+\textbf{Classification Loss --- BCE Loss}: Target scores $t_{i,c}$ là \textbf{soft labels} từ alignment metric (không phải 0/1 cứng):
+\begin{equation}
+    \mathcal{L}_{\text{cls}} = \frac{\sum_{i,c} \text{BCE}(\hat{s}_{i,c}, \; t_{i,c})}{\sum_j t_j}
+\end{equation}
+
+\textbf{LTRB Loss} (khi reg\_max = 1, mặc định YOLO26):
+\begin{equation}
+    \mathcal{L}_{\text{L1}} = \frac{\sum_{i \in \text{fg}} \|p_i - t_i\|_1 \cdot w_i}{\sum_j t_j}
+\end{equation}
+
+% ===================================================================
+\section{TaskAlignedAssigner (TAL)}
+\label{sec:tal}
+
+TAL xác định anchor nào là positive/negative cho mỗi GT box dựa trên alignment metric:
+\begin{equation}
+    \text{align\_metric}_{i,j} = s_{i,j}^{\alpha} \cdot u_{i,j}^{\beta}
+    \label{eq:align_metric}
+\end{equation}
+
+\noindent trong đó $s_{i,j}$ là classification score, $u_{i,j}$ là CIoU, $\alpha = 0.5$, $\beta = 6.0$ (CIoU được nhấn mạnh rất mạnh).
+
+\begin{algorithm}[H]
+\caption{TaskAlignedAssigner}
+\label{alg:tal}
+\begin{algorithmic}[1]
+\State \textbf{Input}: pred\_scores, pred\_bboxes, anchor\_points, gt\_labels, gt\_bboxes
+\State \textbf{Step 1}: Lọc anchors nằm trong GT box (geometric prior)
+\State \textbf{Step 2}: Tính alignment\_metric = $s^{0.5} \cdot \text{CIoU}^{6}$
+\State \textbf{Step 3}: Chọn Top-K anchors có metric cao nhất cho mỗi GT
+\Statex \quad\quad O2M: $K=10$, O2O: $K=7 \to$ chọn Top-1
+\State \textbf{Step 4}: Xử lý conflict: nếu anchor match nhiều GT, giữ GT có IoU cao nhất
+\State \textbf{Step 5}: Tính soft labels = one-hot $\times$ normalized metric
+\State \textbf{Output}: target\_labels, target\_bboxes, target\_scores, fg\_mask
+\end{algorithmic}
+\end{algorithm}
+
+% ===================================================================
+\section{ProgLoss (Progressive Loss Balancing)}
+\label{subsec:progloss}
+
+ProgLoss tự động điều chỉnh trọng số đóng góp của hai nhánh O2M và O2O theo tiến trình huấn luyện, tuân theo quy luật Cosine Decay:
+
+\begin{equation}
+    \alpha(\text{epoch}) = \alpha_\text{start} + (\alpha_\text{end} - \alpha_\text{start}) \cdot \frac{1 - \cos(\pi \cdot \text{progress})}{2}
+    \label{eq:progloss_alpha}
+\end{equation}
+\begin{equation}
+    \beta = 1 - \alpha
+\end{equation}
+
+\begin{table}[H]
+\centering
+\caption{Lịch trình trọng số O2M/O2O qua epoch.}
+\label{tab:o2m_o2o_schedule}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Epoch} & \textbf{$\alpha$ (O2M)} & \textbf{$\beta$ (O2O)} & \textbf{Ý nghĩa} \\
+\midrule
+1   & 0.80 & 0.20 & O2M ưu thế --- dense supervision \\
+50  & 0.55 & 0.45 & Cân bằng dần \\
+100 & 0.30 & 0.70 & O2O tiếp quản --- chuyên cho inference \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Đồng thời, trọng số các thành phần loss cũng thay đổi:
+\begin{itemize}
+    \item Box loss weight: $7.5 \to 3.75$ (giảm dần, tinh chỉnh mịn hơn).
+    \item Cls loss weight: $0.5 \to 1.5$ (tăng dần, tập trung phân loại).
+    \item DFL loss weight: giữ không đổi ở $1.5$.
+\end{itemize}
+
+\textbf{Triết lý}: Giai đoạn đầu tập trung học \textit{ở đâu} (box weight cao), giai đoạn sau tập trung học \textit{là gì} (cls weight cao).
+
+\subsection{Công thức Loss tổng hợp đầy đủ}
+
+\begin{equation}
+\boxed{
+\mathcal{L}_{\text{total}}(e) = \alpha(e) \cdot \Big[w_{\text{box}}(e) \cdot \mathcal{L}_{\text{box}}^{\text{O2M}} + w_{\text{cls}}(e) \cdot \mathcal{L}_{\text{cls}}^{\text{O2M}} + w_{\text{dfl}} \cdot \mathcal{L}_{\text{dfl}}^{\text{O2M}}\Big]
++ \beta(e) \cdot \Big[w_{\text{box}}(e) \cdot \mathcal{L}_{\text{box}}^{\text{O2O}} + w_{\text{cls}}(e) \cdot \mathcal{L}_{\text{cls}}^{\text{O2O}} + w_{\text{dfl}} \cdot \mathcal{L}_{\text{dfl}}^{\text{O2O}}\Big]
+}
+\label{eq:full_loss}
+\end{equation}
+
+\textbf{Trực giác}:
+\begin{itemize}
+    \item Đầu training: $\alpha$ cao $\to$ nhiều anchor positive (dense supervision); $w_{\text{box}}$ cao $\to$ ưu tiên localization.
+    \item Cuối training: $\beta$ cao $\to$ O2O head quan trọng hơn; $w_{\text{cls}}$ cao $\to$ tập trung classification.
+\end{itemize}
+
+% ===================================================================
+\section{MuSGD Optimizer}
+\label{subsec:musgd}
+
+MuSGD là bộ tối ưu lai kết hợp SGD và Muon~\cite{muon}:
+
+\begin{itemize}
+    \item \textbf{SGD}: Xử lý các tham số 1D (bias, gain, BatchNorm $\gamma$/$\beta$).
+    \item \textbf{Muon}: Xử lý các ma trận trọng số 2D lớn (weights của Conv2d) bằng phép trực giao hóa gradient.
+\end{itemize}
+
+\textbf{Nguyên lý Muon}: Biến đổi ma trận gradient $G$ thành ma trận cập nhật trực giao $O = UV^T$ (từ phân tích SVD $G = U\Sigma V^T$, loại bỏ $\Sigma$). Điều này giúp tất cả các chiều không gian được đối xử công bằng, tránh tình trạng gradient zig-zag ở các chiều dốc.
+
+\textbf{Newton-Schulz thay SVD}: Trong thực tế, Muon không sử dụng SVD chính xác (quá chậm trên GPU) mà thay bằng thuật toán lặp Newton-Schulz:
+
+\begin{equation}
+    X_0 = \frac{G}{\|G\|_F + \epsilon}
+    \label{eq:ns_init}
+\end{equation}
+\begin{equation}
+    X_{k+1} = a \cdot X_k + b \cdot (X_k X_k^T) X_k + c \cdot (X_k X_k^T)^2 X_k
+    \label{eq:ns_iter}
+\end{equation}
+
+\noindent với các hệ số $a = 3.4445$, $b = -4.7750$, $c = 2.0315$, chạy 5 bước lặp. Kết quả đạt ma trận xấp xỉ trực giao với sai số $\kappa \approx 1.01$ so với $\kappa = 1.0$ lý tưởng, nhưng nhanh hơn SVD từ 10--100 lần trên GPU.
+
+% ===================================================================
+\section{STAL (Small-Target-Aware Label Assignment)}
+\label{subsec:stal}
+
+STAL giải quyết thách thức phát hiện đối tượng kích thước cực nhỏ:
+
+\begin{equation}
+    \text{Label Assignment} = \begin{cases}
+        \text{Ép gán 4 anchors} & \text{nếu kích thước vật thể} < 8 \times 8 \text{ pixel} \\
+        \text{TAL tiêu chuẩn (IoU + Cls)} & \text{ngược lại}
+    \end{cases}
+\end{equation}
+
+Việc ép buộc gán tối thiểu 4 anchor cho vật thể nhỏ đảm bảo chúng luôn đóng góp đáng kể vào hàm loss, buộc mô hình phải học cách nhận diện.
+
+% ===================================================================
+\section{Hàm strip\_o2m()}
+\label{subsec:strip_o2m}
+
+Khi chuyển từ huấn luyện sang triển khai:
+
+\begin{lstlisting}[caption={Loại bỏ nhánh O2M khi deploy}, label=lst:strip_o2m]
+def strip_o2m(model):
+    """Loai bo hoan toan nhanh O2M khi deploy."""
+    for m in model.modules():
+        if hasattr(m, 'one2many'):
+            del m.one2many
+    # Chi giu lai nhanh O2O -> inference NMS-free
+\end{lstlisting}
+
+% ===================================================================
+\section{Kết quả Custom (1st run)}
+\label{sec:results_custom}
+
+\begin{table}[H]
+    \centering
+    \caption{Kết quả huấn luyện YOLO26 Custom --- lần chạy 1 (79 epochs)}
+    \label{tab:results_custom}
+    \begin{tabular}{lr}
+        \toprule
+        \textbf{Chỉ số} & \textbf{Giá trị} \\
+        \midrule
+        Platform             & Kaggle T4 GPU \\
+        Epochs đã chạy       & 79 \\
+        \textbf{mAP50}       & \textbf{0.686} \\
+        Box loss (train)     & 1.166 \\
+        Cls loss (train)     & 4.097 \\
+        Val box loss         & 0.984 \\
+        Val cls loss         & 4.143 \\
+        Weights (best.pt)    & $\sim$30.7 MB \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\textbf{Nhận xét}:
+\begin{itemize}
+    \item Custom model đạt mAP50 = 0.686 sau 79 epochs, so với gốc 0.756 sau 120 epochs. Mô hình vẫn đang trong quá trình hội tụ.
+    \item Cls loss tăng cao ở cuối training (từ $\sim$3.4 $\to$ 4.1) --- đây là \textbf{dấu hiệu bình thường} của ProgLoss đang chuyển trọng số từ O2M sang O2O, ép cls loss của O2O tăng lên.
+    \item Val box loss tiếp tục giảm tốt ($2.22 \to 0.98$), cho thấy mô hình đang học định vị hiệu quả.
+    \item Weights lớn hơn nhiều so với gốc ($\sim$30.7 MB vs $\sim$5.3 MB) do chứa cả O2M head và optimizer state. Sau khi \texttt{strip\_o2m()}, kích thước sẽ giảm đáng kể.
+\end{itemize}
+
+% ===================================================================
+\section{Export pipeline}
+\label{sec:train_export}
+
+Quy trình chuyển đổi mô hình để triển khai trên \rpi:
+
+\begin{equation*}
+    \text{PyTorch (.pt)} \xrightarrow{\texttt{strip\_o2m()}} \text{Cleaned .pt} \xrightarrow{\text{export}} \textbf{NCNN}
+\end{equation*}
+
+So với pipeline của khóa trước~\cite{kltn_tiennhiem} (PyTorch $\to$ ONNX $\to$ TF $\to$ TFLite INT8 $\to$ Edge TPU), pipeline NCNN đơn giản hơn đáng kể chỉ với 2 bước, không cần lượng tử hóa INT8.

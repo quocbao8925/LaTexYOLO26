@@ -1,0 +1,161 @@
+% ============================================================
+% CHƯƠNG 3: DATASET
+% ============================================================
+\chapter{Xây dựng bộ dữ liệu}
+\label{ch:dataset}
+
+\section{Phân tích yêu cầu dataset}
+\label{sec:ds_requirements}
+
+Bài toán nhận diện diễn giả trong môi trường giảng đường và hội trường đặt ra các yêu cầu cụ thể cho bộ dữ liệu:
+
+\begin{enumerate}[label=\arabic*)]
+    \item \textbf{Lớp đối tượng}: Chỉ cần một lớp duy nhất --- \texttt{person} (người). Trong phạm vi Đồ án 1, hệ thống chưa cần phân biệt ``diễn giả'' với ``khán giả''.
+    
+    \item \textbf{Đa dạng tư thế}: Diễn giả có thể đứng, ngồi, di chuyển, quay lưng, hoặc bị che khuất một phần.
+    
+    \item \textbf{Kích thước ảnh}: Tối ưu cho thiết bị biên --- ảnh kích thước nhỏ ($320 \times 320$ pixel) để giảm tải tính toán trên \rpi.
+    
+    \item \textbf{Số lượng đủ lớn}: Cần hàng chục nghìn ảnh để mô hình học được đặc trưng tổng quát, tránh overfitting.
+    
+    \item \textbf{Không quá nhiều đối tượng}: Trong bối cảnh hội trường, thường chỉ có 1-3 diễn giả. Các ảnh có quá nhiều người (crowd) không phù hợp.
+\end{enumerate}
+
+\section{Khảo sát và lựa chọn dataset}
+\label{sec:ds_survey}
+
+Nhóm đã khảo sát ba nguồn dữ liệu tiềm năng:
+
+\subsection{COCO 2017 (Common Objects in Context)}
+
+COCO~\cite{coco} là bộ dữ liệu chuẩn (benchmark dataset) phổ biến nhất trong lĩnh vực Object Detection, chứa hơn 200.000 ảnh với 80 lớp đối tượng. Lớp \texttt{person} (ID: 0) chiếm số lượng lớn nhất trong COCO.
+
+\textbf{Ưu điểm}: Đa dạng bối cảnh, đa dạng tư thế, annotation chất lượng cao, được cộng đồng kiểm chứng rộng rãi.\\
+\textbf{Nhược điểm}: Chứa nhiều lớp không cần thiết, nhiều ảnh có quá nhiều người (crowd scene), cần lọc và tiền xử lý.
+
+\subsection{SCB-05 (Smart Classroom Behavior)}
+
+Dataset chuyên biệt cho bài toán hành vi trong lớp học, chứa các lớp như Teacher, Student.
+
+\textbf{Ưu điểm}: Bối cảnh phù hợp (lớp học), có nhãn phân biệt giáo viên/học sinh.\\
+\textbf{Nhược điểm}: Quy mô nhỏ hơn COCO, đa dạng tư thế hạn chế, annotation không đồng đều.
+
+\subsection{TED Talk (tự tạo)}
+
+Trích xuất khung hình từ video TED Talk và tự gán nhãn.
+
+\textbf{Ưu điểm}: Bối cảnh sát với thực tế (diễn giả thuyết trình).\\
+\textbf{Nhược điểm}: Tốn công sức gán nhãn thủ công, số lượng hạn chế, thiếu đa dạng.
+
+\subsection{Kết luận lựa chọn}
+
+Sau khi đánh giá, nhóm quyết định sử dụng \textbf{COCO 2017} làm nguồn dữ liệu chính, tiến hành lọc và tiền xử lý để tạo bộ dữ liệu \textbf{COCO Person 320} phù hợp với bài toán. SCB-05 được sử dụng như bộ dữ liệu thử nghiệm bổ sung.
+
+\section{Dataset COCO Person 320}
+\label{sec:ds_coco_person}
+
+\subsection{Quy trình tiền xử lý}
+
+Toàn bộ quy trình tiền xử lý được hiện thực trong notebook \texttt{PrepairCOCO.ipynb}, chạy trên Google Colab:
+
+\begin{enumerate}[label=\textbf{Bước \arabic*:}]
+    \item \textbf{Lọc lớp đối tượng}: Chỉ giữ lại các annotation thuộc lớp \texttt{person} (ID: 0) từ tập COCO 2017.
+    
+    \item \textbf{Loại ảnh không có person}: Loại bỏ các ảnh không chứa bất kỳ đối tượng \texttt{person} nào.
+    
+    \item \textbf{Loại ảnh quá nhiều người}: Loại bỏ các ảnh có hơn 9 bounding box \texttt{person}, tránh các ảnh crowd scene không phù hợp với bối cảnh diễn giả.
+    
+    \item \textbf{Loại ảnh có quá nhiều box lớn}: Loại bỏ các ảnh có nhiều bounding box chiếm diện tích quá lớn so với kích thước ảnh.
+    
+    \item \textbf{Resize ảnh}: Resize toàn bộ ảnh về kích thước $320 \times 320$ pixel sử dụng phương pháp \texttt{cv2.INTER\_AREA} (phù hợp khi thu nhỏ ảnh, tránh aliasing).
+    
+    \item \textbf{Chuyển đổi annotation}: Chuyển đổi annotation từ định dạng COCO (xywh tuyệt đối) sang định dạng YOLO (class, cx, cy, w, h --- chuẩn hóa về $[0, 1]$), đồng thời cập nhật tọa độ theo tỷ lệ resize.
+\end{enumerate}
+
+\subsection{Thống kê dataset}
+
+Kết quả sau khi tiền xử lý được tóm tắt trong \tabref{tab:dataset_stats}.
+
+\begin{table}[H]
+    \centering
+    \caption{Thống kê bộ dữ liệu COCO Person 320}
+    \label{tab:dataset_stats}
+    \begin{tabular}{lrr}
+        \toprule
+        \textbf{Tập dữ liệu} & \textbf{Số lượng ảnh} & \textbf{Tỷ lệ} \\
+        \midrule
+        Train              & 49.811       & 96\% \\
+        Validation         & 2.074        & 4\%  \\
+        \midrule
+        \textbf{Tổng}      & \textbf{51.885} & \textbf{100\%} \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsection{Phân tích dữ liệu khám phá (EDA)}
+
+% TODO: Chèn hình EDA — 4 biểu đồ sau đây lấy từ ảnh đã có
+% Hình 1: Phân phối số người/ảnh (histogram)
+% Hình 2: Heatmap centroid (tọa độ tâm bbox)
+% Hình 3: Phân phối diện tích bbox
+% Hình 4: Phân phối tỷ lệ H/W
+
+\begin{figure}[H]
+    \centering
+    % \includegraphics[width=0.8\textwidth]{figures/eda_person_count.png}
+    \fbox{\parbox{0.8\textwidth}{\centering\vspace{2cm}\textbf{[CHÈN ẢNH]} Phân phối số người trên mỗi ảnh\vspace{2cm}}}
+    \caption{Phân phối số lượng đối tượng \texttt{person} trên mỗi ảnh trong tập COCO Person 320}
+    \label{fig:eda_person_count}
+\end{figure}
+
+Kết quả phân tích EDA cho thấy:
+
+\begin{itemize}
+    \item \textbf{Số lượng người/ảnh}: Phần lớn ảnh chứa 1--2 người (24.251 ảnh chứa 1 người, 10.433 ảnh chứa 2 người), phù hợp với bối cảnh diễn giả.
+    
+    \item \textbf{Tọa độ tâm}: Heatmap centroid cho thấy các bounding box tập trung ở vùng giữa ảnh ($x \approx 0.5$, $y \approx 0.5$), phản ánh xu hướng đặt đối tượng ở trung tâm khung hình.
+    
+    \item \textbf{Diện tích bbox}: Phân bố long-tail, đa phần bounding box có kích thước nhỏ đến trung bình.
+    
+    \item \textbf{Tỷ lệ H/W}: Peak ở khoảng $\sim 2.0$ (người đứng thường cao gấp đôi chiều rộng), phù hợp với đặc điểm hình học của cơ thể người.
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    % \includegraphics[width=0.45\textwidth]{figures/eda_heatmap.png}
+    % \includegraphics[width=0.45\textwidth]{figures/eda_aspect_ratio.png}
+    \fbox{\parbox{0.45\textwidth}{\centering\vspace{2cm}\textbf{[CHÈN ẢNH]}\\ Heatmap centroid\vspace{2cm}}}
+    \hfill
+    \fbox{\parbox{0.45\textwidth}{\centering\vspace{2cm}\textbf{[CHÈN ẢNH]}\\ Tỷ lệ H/W\vspace{2cm}}}
+    \caption{(Trái) Heatmap tọa độ tâm bounding box. (Phải) Phân phối tỷ lệ cao/rộng của bounding box.}
+    \label{fig:eda_heatmap_aspect}
+\end{figure}
+
+\section{Định dạng YOLO}
+\label{sec:ds_yolo_format}
+
+Mỗi ảnh trong dataset được đi kèm một file annotation \texttt{.txt} cùng tên, trong đó mỗi dòng tương ứng với một bounding box:
+
+\begin{center}
+    \texttt{class\_id \quad cx \quad cy \quad w \quad h}
+\end{center}
+
+\noindent trong đó:
+\begin{itemize}
+    \item \texttt{class\_id}: ID lớp đối tượng (trong trường hợp này luôn là \texttt{0} --- person).
+    \item \texttt{cx, cy}: Tọa độ tâm bounding box, chuẩn hóa về $[0, 1]$ theo kích thước ảnh.
+    \item \texttt{w, h}: Chiều rộng và chiều cao bounding box, chuẩn hóa về $[0, 1]$.
+\end{itemize}
+
+Ví dụ một dòng annotation: \texttt{0 0.4523 0.6218 0.1875 0.4063}
+
+\section{Hướng mở rộng dataset}
+\label{sec:ds_future}
+
+Trong các giai đoạn tiếp theo (Đồ án 2 và Khóa luận tốt nghiệp), nhóm dự kiến mở rộng dataset theo các hướng:
+
+\begin{itemize}
+    \item \textbf{SCB-05}: Sử dụng dataset lớp học thông minh để bổ sung bối cảnh giảng dạy, đã thử nghiệm sơ bộ với 11.848 ảnh train / 4.699 ảnh validation.
+    \item \textbf{TED Talk}: Trích xuất và gán nhãn khung hình từ các video TED Talk, tạo dataset chuyên biệt cho bối cảnh hội trường.
+    \item \textbf{Dữ liệu thực tế}: Thu thập ảnh/video trực tiếp tại giảng đường và hội trường của trường để tạo dataset phù hợp nhất.
+\end{itemize}

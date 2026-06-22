@@ -4,25 +4,79 @@
 \chapter{Giới thiệu}
 \label{ch:introduction}
 
-\section{Bối cảnh và động lực}
+\section{Đặt vấn đề}
+\label{sec:intro_problem}
 
-Bài toán phát hiện đối tượng (Object Detection) yêu cầu mô hình đồng thời giải quyết hai tác vụ: \textbf{phân loại} --- xác định đối tượng thuộc lớp nào, và \textbf{định vị} --- xác định vị trí đối tượng qua bounding box.
+Trong bối cảnh giáo dục và truyền thông hiện đại, nhu cầu ghi hình tự động các buổi thuyết trình, giảng dạy và hội thảo ngày càng gia tăng. Các hệ thống camera cố định truyền thống gặp nhiều hạn chế khi diễn giả di chuyển liên tục trong không gian thuyết trình, dẫn đến việc mất đối tượng khỏi khung hình hoặc cần sự can thiệp thủ công của người quay phim.
 
-Dòng YOLO~\cite{yolov1} tạo bước đột phá khi đưa bài toán về dạng \textit{single-shot}. YOLO26~\cite{yolo26} là phiên bản mới nhất, loại bỏ hoàn toàn NMS nhờ Dual Detection Head (O2M/O2O), kết hợp Progressive Loss Balancing và MuSGD optimizer.
+Giải pháp sử dụng camera xoay tự động bám theo diễn giả là một hướng tiếp cận hiệu quả, tuy nhiên đòi hỏi sự kết hợp chặt chẽ giữa thuật toán nhận diện đối tượng thời gian thực và hệ thống điều khiển cơ điện tử. Thách thức lớn nhất nằm ở việc triển khai các mô hình học sâu (deep learning) trên các thiết bị nhúng có tài nguyên hạn chế như Raspberry Pi, nơi mà tốc độ suy luận (inference speed) là yếu tố quyết định tính khả thi của toàn bộ hệ thống.
+
+Các nghiên cứu tiền nhiệm tại Trường Đại học Công nghệ Thông tin~\cite{kltn_tiennhiem} đã hiện thực thành công hệ thống camera bám vết diễn giả, tuy nhiên phải sử dụng bộ tăng tốc AI chuyên dụng Google Coral TPU để đạt tốc độ thời gian thực trên Raspberry Pi 5. Điều này làm tăng chi phí phần cứng và phức tạp hóa quy trình triển khai (pipeline chuyển đổi mô hình qua 4 bước: PyTorch $\to$ ONNX $\to$ TensorFlow $\to$ TFLite INT8 $\to$ Edge TPU).
+
+Sự ra đời của \yolo~\cite{yolo26} với các cải tiến kiến trúc quan trọng --- loại bỏ hoàn toàn NMS (Non-Maximum Suppression), sử dụng hồi quy trực tiếp (Direct Regression) thay cho DFL (Distribution Focal Loss) --- mở ra khả năng đạt hiệu năng thời gian thực trên CPU thuần của thiết bị nhúng mà không cần bất kỳ bộ tăng tốc phần cứng nào.
 
 \section{Mục tiêu đồ án}
+\label{sec:intro_objectives}
+
+Đồ án 1 đặt ra các mục tiêu cụ thể sau:
 
 \begin{enumerate}[label=\arabic*)]
-    \item Nghiên cứu chi tiết kiến trúc YOLO26 từ Backbone đến Detection Head.
-    \item Xây dựng pipeline huấn luyện từ đầu bằng PyTorch thuần.
-    \item Huấn luyện và đánh giá mô hình trên tập COCO.
-    \item Triển khai trên \rpi qua NCNN~\cite{ncnn} đạt real-time detection.
+    \item \textbf{Nghiên cứu kiến trúc \yolo}: Tìm hiểu sâu toàn bộ kiến trúc mô hình YOLO26 từ Backbone, Neck đến Detection Head, bao gồm các thành phần cốt lõi như C3k2, SPPF, C2PSA, Dual-Head (O2M/O2O), và cơ chế huấn luyện ProgLoss, MuSGD.
+    
+    \item \textbf{Xây dựng và tiền xử lý dataset}: Lựa chọn, lọc và chuẩn bị bộ dữ liệu phù hợp cho bài toán nhận diện người (person detection) với kích thước đầu vào $320 \times 320$ pixel.
+    
+    \item \textbf{Huấn luyện mô hình}: Tiến hành huấn luyện \yolo trên dataset đã chuẩn bị, bao gồm cả phiên bản sử dụng thư viện Ultralytics và phiên bản custom từ đầu (from scratch).
+    
+    \item \textbf{Triển khai trên \rpi}: Chuyển đổi mô hình sang định dạng NCNN và triển khai demo nhận diện người trên \rpi 4GB mà không sử dụng bộ tăng tốc AI, đánh giá hiệu năng FPS thực tế.
 \end{enumerate}
 
-\section{Phạm vi}
+\section{Phạm vi đồ án}
+\label{sec:intro_scope}
 
-Tập trung vào detection (phát hiện người), mô hình YOLO26n với \texttt{reg\_max=1}, triển khai trên \rpi với CPU thuần. Chưa tích hợp ByteTrack~\cite{bytetrack} cho tracking.
+Đồ án này là \textbf{giai đoạn 1} trong lộ trình 3 giai đoạn:
+
+\begin{itemize}
+    \item \textbf{Đồ án 1} (hiện tại): Tập trung vào \textit{detection} --- nghiên cứu kiến trúc, huấn luyện mô hình và demo nhận diện người trên \rpi. Chưa tích hợp thuật toán bám vết (tracking) hay điều khiển servo.
+    
+    \item \textbf{Đồ án 2} (dự kiến): Tích hợp thuật toán bám vết ByteTrack~\cite{bytetrack}, xây dựng pipeline detection--tracking hoàn chỉnh trên \rpi, bắt đầu thiết kế hệ thống điều khiển servo.
+    
+    \item \textbf{Khóa luận tốt nghiệp} (dự kiến): Hoàn thiện toàn bộ hệ thống camera tự động bám vết diễn giả, bao gồm điều khiển Pan-Tilt, truyền dẫn video thời gian thực, và giao diện giám sát.
+\end{itemize}
+
+Phạm vi cụ thể của Đồ án 1:
+\begin{itemize}
+    \item \textbf{Đối tượng}: Diễn giả, giảng viên trong môi trường giảng đường, hội trường (không gặp vấn đề che khuất --- occlusion).
+    \item \textbf{Phần cứng}: \rpi 4GB, không có bộ tăng tốc AI (Google Coral, Hailo, v.v.).
+    \item \textbf{Phần mềm}: Mô hình \yolo nano, runtime NCNN, hệ điều hành Raspberry Pi OS.
+    \item \textbf{Kết nối}: SSH từ laptop Windows qua WiFi (hỗ trợ Tailscale cho kết nối xuyên router).
+\end{itemize}
+
+\section{Phương pháp nghiên cứu}
+\label{sec:intro_methodology}
+
+Đồ án sử dụng các phương pháp nghiên cứu sau:
+
+\begin{enumerate}[label=\arabic*)]
+    \item \textbf{Nghiên cứu tài liệu}: Tham khảo paper gốc của \yolo~\cite{yolo26}, mã nguồn Ultralytics~\cite{ultralytics}, và khóa luận tiền nhiệm~\cite{kltn_tiennhiem} để nắm bắt kiến thức nền tảng.
+    
+    \item \textbf{Thực nghiệm}: Huấn luyện mô hình trên nền tảng Kaggle (GPU), đánh giá kết quả bằng các chỉ số mAP50, mAP50-95, Precision, Recall.
+    
+    \item \textbf{Custom implementation}: Xây dựng lại \yolo từ đầu (from scratch) nhằm hiểu sâu kiến trúc và hỗ trợ quá trình tùy biến mô hình.
+    
+    \item \textbf{Đánh giá trên thiết bị thực}: Triển khai mô hình trên \rpi và đo đạc FPS thực tế ở nhiều độ phân giải đầu vào khác nhau (320, 480, 640).
+\end{enumerate}
 
 \section{Cấu trúc báo cáo}
+\label{sec:intro_structure}
 
-Báo cáo gồm 10 chương: Giới thiệu, Cơ sở lý thuyết, Kiến trúc YOLO26, Các module chi tiết, Hàm loss, Huấn luyện, Muon Optimizer, Dataset và Triển khai, Kết quả, Kết luận.
+Báo cáo được tổ chức thành 7 chương:
+
+\begin{itemize}
+    \item \textbf{\chapref{ch:introduction}}: Giới thiệu tổng quan đồ án, mục tiêu, phạm vi và phương pháp nghiên cứu.
+    \item \textbf{\chapref{ch:background}}: Trình bày cơ sở lý thuyết về Object Detection, dòng YOLO, Edge Computing và NCNN.
+    \item \textbf{\chapref{ch:dataset}}: Mô tả quá trình lựa chọn, xây dựng và phân tích bộ dữ liệu.
+    \item \textbf{\chapref{ch:architecture}}: Phân tích chi tiết kiến trúc mô hình \yolo.
+    \item \textbf{\chapref{ch:training}}: Trình bày quá trình huấn luyện mô hình gốc và custom.
+    \item \textbf{\chapref{ch:deployment}}: Mô tả quá trình triển khai và đánh giá trên \rpi.
+    \item \textbf{\chapref{ch:results}}: Tổng hợp kết quả, đánh giá và hướng phát triển.
+\end{itemize}
