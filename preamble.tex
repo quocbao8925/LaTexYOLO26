@@ -123,6 +123,20 @@
 }
 \usepackage{pdfpages}              % Chèn trang PDF
 \usepackage{appendix}
+\usepackage{framed}
+
+% --- Định nghĩa hộp concept (lightweight, no tcolorbox) ---
+\newenvironment{conceptbox}[1][]{%
+    \begin{framed}\noindent\textbf{#1}\par\smallskip\noindent\ignorespaces
+}{%
+    \end{framed}
+}
+
+\newenvironment{notebox}[1][]{%
+    \begin{framed}\noindent\textbf{#1}\par\smallskip\noindent\ignorespaces
+}{%
+    \end{framed}
+}
 
 % --- Custom commands ---
 \usepackage{xspace}                % Load xspace trước khi định nghĩa lệnh dùng nó
@@ -134,3 +148,4 @@
 \newcommand{\chapref}[1]{Chương~\ref{#1}}
 \newcommand{\secref}[1]{Mục~\ref{#1}}
 \newcommand{\algoref}[1]{Thuật toán~\ref{#1}}
+
