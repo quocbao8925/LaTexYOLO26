@@ -17,7 +17,6 @@
 *.run.xml
 *.toc
 *.synctex.gz
-*.pdf
 *.dvi
 *.ps
 *.idx
