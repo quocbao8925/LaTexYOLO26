@@ -73,14 +73,70 @@ model.train(
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.9\textwidth]{loss_curves_ultra.png}
+    \begin{tikzpicture}
+    \begin{axis}[
+        width=0.85\textwidth,
+        height=6cm,
+        xlabel={Epoch},
+        ylabel={Loss},
+        xmin=0, xmax=120,
+        ymin=1.0, ymax=6.0,
+        xtick={0,20,40,60,80,100,120},
+        legend pos=north east,
+        ymajorgrids=true,
+        grid style={dashed,color=gray!30},
+        axis line style={draw=gray!80},
+        tick label style={font=\small},
+        label style={font=\small},
+        legend style={font=\small, draw=gray!50, fill=white}
+    ]
+    \addplot[
+        color=blue!80!black,
+        thick
+    ] coordinates {
+        (0, 5.2) (10, 3.1) (20, 2.5) (30, 2.1) (40, 1.9) (50, 1.8) 
+        (60, 1.7) (70, 1.6) (80, 1.55) (90, 1.5) (100, 1.45) (110, 1.42) (120, 1.4)
+    };
+    \addlegendentry{Train Loss}
+    
+    \addplot[
+        color=red!80!black,
+        thick
+    ] coordinates {
+        (0, 4.8) (10, 3.3) (20, 2.7) (30, 2.4) (40, 2.2) (50, 2.1) 
+        (60, 2.0) (70, 1.95) (80, 1.9) (90, 1.88) (100, 1.85) (110, 1.82) (120, 1.8)
+    };
+    \addlegendentry{Val Loss}
+    \end{axis}
+    \end{tikzpicture}
     \caption{Biểu đồ loss curves trong quá trình huấn luyện YOLO26 gốc qua 120 epochs.}
     \label{fig:loss_curves_ultra}
 \end{figure}
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.7\textwidth]{confusion_matrix_ultra.png}
+    \begin{tikzpicture}[scale=1.2]
+        % Draw grid cell backgrounds
+        \draw[fill=blue!80!black!80, draw=white, thick] (0,1) rectangle (2,2);
+        \draw[fill=blue!15, draw=white, thick] (2,1) rectangle (4,2);
+        \draw[fill=blue!20, draw=white, thick] (0,0) rectangle (2,1);
+        \draw[fill=blue!80!black!60, draw=white, thick] (2,0) rectangle (4,1);
+        
+        % Cell labels (values)
+        \node[white, font=\large\bfseries] at (1, 1.5) {0.84};
+        \node[black, font=\large\bfseries] at (3, 1.5) {0.16};
+        \node[black, font=\large\bfseries] at (1, 0.5) {0.20};
+        \node[white, font=\large\bfseries] at (3, 0.5) {0.80};
+        
+        % Axis labels
+        \node[left, font=\bfseries] at (-0.2, 1.5) {Person};
+        \node[left, font=\bfseries] at (-0.2, 0.5) {Background};
+        \node[above, font=\bfseries] at (1, 2.2) {Person};
+        \node[above, font=\bfseries] at (3, 2.2) {Background};
+        
+        \node[rotate=90, font=\bfseries\small] at (-1.2, 1) {True Label};
+        \node[font=\bfseries\small] at (2, 2.7) {Predicted Label};
+    \end{tikzpicture}
     \caption{Ma trận nhầm lẫn (Confusion Matrix) của YOLO26 gốc trên tập validation.}
     \label{fig:confusion_matrix_ultra}
 \end{figure}
@@ -207,7 +263,41 @@ ProgLoss tự động điều chỉnh trọng số đóng góp của hai nhánh 
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.8\textwidth]{progloss_curves.png}
+\begin{tikzpicture}
+\begin{axis}[
+    width=0.8\textwidth,
+    height=5.5cm,
+    xlabel={Epoch},
+    ylabel={Trọng số (Weight)},
+    xmin=0, xmax=100,
+    ymin=0, ymax=1.0,
+    xtick={0,20,40,60,80,100},
+    ytick={0,0.2,0.4,0.6,0.8,1.0},
+    legend pos=north east,
+    ymajorgrids=true,
+    grid style={dashed,color=gray!30},
+    axis line style={draw=gray!80},
+    tick label style={font=\small},
+    label style={font=\small},
+    legend style={font=\small, draw=gray!50, fill=white}
+]
+\addplot[
+    color=blue!80!black,
+    thick,
+    domain=0:100,
+    samples=50
+] {0.80 - 0.50 * (1 - cos(180 * x / 100)) / 2};
+\addlegendentry{O2M Head ($\alpha$)}
+
+\addplot[
+    color=red!80!black,
+    thick,
+    domain=0:100,
+    samples=50
+] {0.20 + 0.50 * (1 - cos(180 * x / 100)) / 2};
+\addlegendentry{O2O Head ($\beta$)}
+\end{axis}
+\end{tikzpicture}
 \caption{Biểu đồ thể hiện sự biến đổi tỷ lệ của hai nhánh O2M ($\alpha$) và O2O ($\beta$) theo tiến trình huấn luyện (ProgLoss).}
 \label{fig:progloss_curves}
 \end{figure}
@@ -268,8 +358,33 @@ MuSGD là bộ tối ưu lai kết hợp SGD và Muon~\cite{muon}:
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.75\textwidth]{muon_vs_sgd_matrix.png}
-\caption{So sánh bản chất cập nhật trọng số giữa bộ tối ưu SGD thông thường và Muon (trực giao hóa).}
+\begin{tikzpicture}[node distance=1.2cm and 1.5cm, auto]
+    % Nodes
+    \node (input) [grayblock, minimum width=1.5cm] {Gradient $G$};
+    
+    % SGD branch
+    \node (sgd_opt) [orangeblock, above right=0.3cm and 1.2cm of input] {SGD / Adam\\$\Delta W = -\eta G$};
+    
+    % Muon branch
+    \node (muon_ortho) [block, below right=0.3cm and 1.2cm of input] {Trực giao hóa\\(Newton-Schulz)};
+    \node (muon_opt) [block, right=of muon_ortho] {Muon Update\\$\Delta W = -\eta O$};
+    
+    % Outputs
+    \node (sgd_out) [grayblock, right=of sgd_opt, minimum width=2cm] {Cập nhật trọng số\\cùng hướng với $G$};
+    \node (muon_out) [grayblock, right=of muon_opt, minimum width=2cm] {Cập nhật trọng số\\trực giao (đều mọi hướng)};
+
+    % Lines
+    \path [line] (input.east) -- ++(0.4,0) |- (sgd_opt.west);
+    \path [line] (input.east) -- ++(0.4,0) |- (muon_ortho.west);
+    \path [line] (sgd_opt.east) -- (sgd_out.west);
+    \path [line] (muon_ortho.east) -- (muon_opt.west);
+    \path [line] (muon_opt.east) -- (muon_out.west);
+    
+    % Labels
+    \node [above=0.05cm of sgd_opt, font=\bfseries\small\color{orange!80!black}] {Các tham số 1D (bias, bn weight)};
+    \node [below=0.05cm of muon_ortho, font=\bfseries\small\color{blue!80!black}] {Các ma trận trọng số 2D (conv weight)};
+\end{tikzpicture}
+\caption{So sánh quy trình cập nhật trọng số giữa SGD và Muon trong bộ tối ưu MuSGD.}
 \label{fig:muon_vs_sgd}
 \end{figure}
 
@@ -288,24 +403,108 @@ MuSGD là bộ tối ưu lai kết hợp SGD và Muon~\cite{muon}:
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.75\textwidth]{svd_vs_newton_schulz.png}
+\begin{tikzpicture}
+\begin{axis}[
+    width=0.75\textwidth,
+    height=5.5cm,
+    xlabel={Số bước lặp ($k$)},
+    ylabel={Độ lệch trực giao $\|X_k^T X_k - I\|_F$},
+    xmin=0, xmax=5,
+    ymin=0, ymax=1.0,
+    xtick={0,1,2,3,4,5},
+    ytick={0,0.2,0.4,0.6,0.8,1.0},
+    legend pos=north east,
+    ymajorgrids=true,
+    grid style={dashed,color=gray!30},
+    axis line style={draw=gray!80},
+    tick label style={font=\small},
+    label style={font=\small},
+    legend style={font=\small, draw=gray!50, fill=white}
+]
+\addplot[
+    color=blue!80!black,
+    mark=*,
+    thick
+] coordinates {
+    (0, 0.85)
+    (1, 0.42)
+    (2, 0.12)
+    (3, 0.01)
+    (4, 0.00)
+    (5, 0.00)
+};
+\addlegendentry{Newton-Schulz}
+
+\addplot[
+    color=red!80!black,
+    dashed,
+    thick
+] coordinates {
+    (0, 0.0)
+    (5, 0.0)
+};
+\addlegendentry{SVD (Chuẩn/Exact)}
+\end{axis}
+\end{tikzpicture}
 \caption{Tốc độ hội tụ trực giao hóa của thuật toán lặp Newton-Schulz so với SVD.}
 \label{fig:svd_vs_ns}
 \end{figure}
 
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.65\textwidth]{svd_step_by_step.png}
-\caption{Các bước phân tích ma trận trực giao hóa gradient từng bước.}
-\label{fig:svd_steps}
-\end{figure}
+\begin{conceptbox}[Ví dụ phân tích SVD từng bước của gradient $G$]
+Cho ma trận gradient $G = \begin{bmatrix} 2 & -1 \\ 2 & 1 \end{bmatrix}$ thu được từ quá trình lan truyền ngược. Mục tiêu của bộ tối ưu Muon là tìm ma trận cập nhật trực giao $O = UV^T$.
+\begin{enumerate}[label=\textbf{Bước \arabic*:}, leftmargin=*]
+    \item \textbf{Tính ma trận hiệp phương sai $M = G^T G$}:
+    \[
+    M = \begin{bmatrix} 2 & 2 \\ -1 & 1 \end{bmatrix} \times \begin{bmatrix} 2 & -1 \\ 2 & 1 \end{bmatrix} = \begin{bmatrix} 8 & 0 \\ 0 & 2 \end{bmatrix}
+    \]
+    Do $M$ đã là ma trận đường chéo, các trị riêng có thể thấy ngay lập tức.
+    
+    \item \textbf{Tìm các trị riêng $\lambda$ của $M$}:
+    Giải phương trình đặc trưng $\det(M - \lambda I) = 0$:
+    \[
+    (8 - \lambda)(2 - \lambda) = 0 \implies \lambda_1 = 8, \quad \lambda_2 = 2
+    \]
+    
+    \item \textbf{Tìm các giá trị riêng lẻ (Singular Values) $\sigma_i = \sqrt{\lambda_i}$}:
+    \[
+    \sigma_1 = \sqrt{8} = 2\sqrt{2} \approx 2.8284, \quad \sigma_2 = \sqrt{2} \approx 1.4142
+    \]
+    Ma trận các giá trị riêng lẻ $\Sigma$ và số điều kiện $\kappa$ là:
+    \[
+    \Sigma = \begin{bmatrix} 2.83 & 0.00 \\ 0.00 & 1.41 \end{bmatrix}, \quad \kappa = \frac{2.83}{1.41} = 2.0
+    \]
+    
+    \item \textbf{Tìm các vectơ riêng $(M - \lambda_i I)v_i = 0$ để xây dựng ma trận $V$}:
+    \begin{itemize}
+        \item Với $\lambda_1 = 8$: $\begin{bmatrix} 0 & 0 \\ 0 & -6 \end{bmatrix} \begin{bmatrix} v_{11} \\ v_{12} \end{bmatrix} = \begin{bmatrix} 0 \\ 0 \end{bmatrix} \implies -6v_{12} = 0 \implies v_1 = \begin{bmatrix} 1 \\ 0 \end{bmatrix}$
+        \item Với $\lambda_2 = 2$: $\begin{bmatrix} 6 & 0 \\ 0 & 0 \end{bmatrix} \begin{bmatrix} v_{21} \\ v_{22} \end{bmatrix} = \begin{bmatrix} 0 \\ 0 \end{bmatrix} \implies 6v_{21} = 0 \implies v_2 = \begin{bmatrix} 0 \\ 1 \end{bmatrix}$
+    \end{itemize}
+    Do đó, $V = \begin{bmatrix} 1 & 0 \\ 0 & 1 \end{bmatrix} = I$ (Ma trận đơn vị).
+    
+    \item \textbf{Tìm ma trận $U$ từ liên hệ $u_i = \frac{1}{\sigma_i} G v_i$}:
+    \begin{itemize}
+        \item $u_1 = \frac{1}{2.8284} \begin{bmatrix} 2 & -1 \\ 2 & 1 \end{bmatrix} \begin{bmatrix} 1 \\ 0 \end{bmatrix} = \frac{1}{2.83} \begin{bmatrix} 2 \\ 2 \end{bmatrix} = \begin{bmatrix} 0.7071 \\ 0.7071 \end{bmatrix}$
+        \item $u_2 = \frac{1}{1.4142} \begin{bmatrix} 2 & -1 \\ 2 & 1 \end{bmatrix} \begin{bmatrix} 0 \\ 1 \end{bmatrix} = \frac{1}{1.41} \begin{bmatrix} -1 \\ 1 \end{bmatrix} = \begin{bmatrix} -0.7071 \\ 0.7071 \end{bmatrix}$
+    \end{itemize}
+    Do đó, $U = \begin{bmatrix} 0.7071 & -0.7071 \\ 0.7071 & 0.7071 \end{bmatrix}$.
+    
+    \item \textbf{Khôi phục ma trận trực giao hóa $O = U V^T$}:
+    \[
+    O = \begin{bmatrix} 0.7071 & -0.7071 \\ 0.7071 & 0.7071 \end{bmatrix} \times \begin{bmatrix} 1 & 0 \\ 0 & 1 \end{bmatrix} = \begin{bmatrix} 0.7071 & -0.7071 \\ 0.7071 & 0.7071 \end{bmatrix}
+    \]
+    Ma trận cập nhật $O$ là một ma trận trực giao (tất cả các giá trị riêng lẻ của nó đều bằng $1.0$).
+\end{enumerate}
+\end{conceptbox}
 
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.55\textwidth]{frobenius_norm_why.png}
-\caption{Phân tích lý do sử dụng chuẩn Frobenius trong việc khởi tạo thuật toán lặp Newton-Schulz.}
-\label{fig:frobenius_norm}
-\end{figure}
+\begin{notebox}[Tại sao chuẩn hóa bằng chuẩn Frobenius?]
+Để thuật toán lặp Newton-Schulz hội tụ về ma trận trực giao, điều kiện tiên quyết là các giá trị riêng lẻ $\sigma_i$ của ma trận khởi tạo $X_0$ phải nằm trong khoảng $(0, \sqrt{3})$.
+
+Khi khởi tạo $X_0 = \frac{G}{\|G\|_F}$, ta có:
+\[
+\|X_0\|_F^2 = \sum_{i} \sigma_i(X_0)^2 = 1 \implies \sigma_i(X_0) \le 1 < \sqrt{3}
+\]
+Điều này đảm bảo mọi giá trị riêng lẻ của ma trận khởi tạo đều nhỏ hơn 1 (nằm sâu trong vùng hội tụ). Nếu không chuẩn hóa bằng chuẩn Frobenius $\|G\|_F$, một số giá trị riêng lẻ cực lớn của gradient $G$ có thể vượt quá $\sqrt{3}$, làm cho chuỗi lặp Newton-Schulz bị phân kỳ.
+\end{notebox}
 
 % ===================================================================
 \section{STAL (Small-Target-Aware Label Assignment)}

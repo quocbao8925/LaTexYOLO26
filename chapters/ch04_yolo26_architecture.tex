@@ -8,7 +8,7 @@ Chương này trình bày chi tiết kiến trúc mô hình \yolo, bao gồm ba 
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=\textwidth]{yolo26_architecture.png}
+    \includegraphics[width=\textwidth]{YOLO26.drawio.png}
     \caption{Sơ đồ khối tổng quát kiến trúc YOLO26. Đầu vào ảnh $3 \times 640 \times 640$ được xử lý qua Backbone (trích xuất đặc trưng), Neck (tổng hợp FPN+PAN), và Detection Head (Dual-Head O2M/O2O).}
     \label{fig:yolo26_overview}
 \end{figure}
@@ -54,7 +54,27 @@ Bottleneck là block residual cơ bản, tạo đặc trưng $F(x)$ bằng 2 l�
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.45\textwidth]{bottleneck_block.png}
+\begin{tikzpicture}[node distance=1cm and 1.2cm, auto]
+    % Nodes
+    \node (input) [splitnode] {};
+    \node (lbl_in) [left=0.15cm of input] {Input $x$};
+    \node (cv1) [block, right=of input] {Conv 1x1\\(cv1)};
+    \node (cv2) [block, right=of cv1] {Conv 3x3 / DWConv\\(cv2)};
+    \node (sum) [sum, right=of cv2];
+    \node (output) [right=0.8cm of sum] {Output};
+
+    % Connections
+    \path [line] (input) -- (cv1);
+    \path [line] (cv1) -- (cv2);
+    \path [line] (cv2) -- (sum);
+    \path [line] (sum) -- (output);
+    
+    % Skip connection
+    \path [line] (input) -- ++(0,1.0) -| (sum.north);
+    
+    % Labels
+    \node [above=0.6cm of cv1, font=\small\itshape] {Skip Connection (Shortcut = True)};
+\end{tikzpicture}
 \caption{Sơ đồ khối Bottleneck với skip connection.}
 \label{fig:bottleneck}
 \end{figure}
@@ -118,7 +138,34 @@ Input -> cv1 -> split -> [y0, y1]
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.55\textwidth]{c3k_block.png}
+\begin{tikzpicture}[node distance=0.8cm and 1.2cm, auto]
+    % Nodes
+    \node (input) [splitnode] {};
+    \node (lbl_in) [left=0.15cm of input] {Input $x$};
+    
+    % Upper branch (Main branch with Bottlenecks)
+    \node (cv1) [block, above right=0.2cm and 1.0cm of input] {Conv 1x1\\(cv1)};
+    \node (bottlenecks) [block, right=of cv1] {Chuỗi $n$ khối\\C3k / Bottleneck};
+    
+    % Lower branch (Shortcut / Skip branch)
+    \node (cv2) [block, below right=0.2cm and 1.0cm of input] {Conv 1x1\\(cv2)};
+    
+    % Concat node
+    \node (concat) [grayblock, right=1.2cm of bottlenecks, yshift=-0.7cm] {Concat};
+    
+    % Final Conv
+    \node (cv3) [block, right=of concat] {Conv 1x1\\(cv3)};
+    \node (output) [right=0.8cm of cv3] {Output};
+
+    % Connections
+    \path [line] (input) -- ++(0,0.7) |- (cv1.west);
+    \path [line] (input) -- ++(0,-0.7) |- (cv2.west);
+    \path [line] (cv1) -- (bottlenecks);
+    \path [line] (bottlenecks.east) -- ++(0.4,0) |- (concat.west);
+    \path [line] (cv2.east) -- ++(0.4,0) |- (concat.west);
+    \path [line] (concat) -- (cv3);
+    \path [line] (cv3) -- (output);
+\end{tikzpicture}
 \caption{Sơ đồ khối C3k --- C3 với kernel 3x3 sâu hơn.}
 \label{fig:c3k}
 \end{figure}
@@ -145,7 +192,57 @@ C3k2 là khối trộn đặc trưng chính và quan trọng nhất trong \yolo,
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.55\textwidth]{c3k2_block.png}
+\begin{tikzpicture}[
+    node distance=0cm,
+    block/.append style={minimum width=1.6cm, minimum height=0.8cm},
+    auto
+]
+    % --- Node definitions ---
+    \node (input)  []                            {Input $x$};
+    \node (cv1)    [block, right=1.0cm of input] {Conv 1x1\\(cv1)};
+    % Place Concat with explicit gap so shortcut wire has room above
+    \node (concat) [grayblock, right=5.5cm of cv1] {Concat};
+    \node (cv2)    [block,  right=0.8cm of concat] {Conv 1x1\\(cv2)};
+    \node (output) [right=0.8cm of cv2]            {Output};
+
+    % Split point on the wire after cv1
+    \coordinate (S) at ($(cv1.east)+(0.55,0)$);
+
+    % Block row, centred below the cv1-to-concat gap
+    \coordinate (midgap) at ($(cv1.east)!0.5!(concat.west)$);
+    % Lower the block row to y = -1.5cm so we have a clear vertical entry into Concat
+    \node (block1) [block, below=1.5cm of midgap, xshift=-1.0cm] {Block 1};
+    \node (block2) [block, right=0.7cm of block1]               {Block 2};
+
+    % --- Forward main wire ---
+    \path [line] (input) -- (cv1);
+    \draw [-]    (cv1.east) -- (S);   % no arrowhead at split
+
+    % --- Shortcut y0: go UP by 1.0cm, then RIGHT to concat.north ---
+    % Path-based node placement to ensure label is perfectly centered and above the line
+    \coordinate (Sup) at ($(S)+(0,1.0)$);
+    \path [line] (S) -- (Sup) -- node[above, midway, font=\small] {Nhánh $y_0$ (đi thẳng)} (Sup -| concat.north) -- (concat.north);
+
+    % --- Branch y1: go DOWN then RIGHT to block1.west ---
+    % Single bend: goes down to block1's center line, then horizontally to block1.west
+    \path [line] (S) |- (block1.west);
+    \node [left=5pt, font=\small] at (S |- block1.west) {$y_1$};
+
+    % --- Block 1 to Block 2 ---
+    \path [line] (block1) -- (block2);
+
+    % --- Outputs from blocks to concat.south ---
+    % Block 1 output (from mid12) goes up to y = -0.9, then right to concat.south-west, then up
+    \coordinate (mid12)  at ($(block1.east)!0.5!(block2.west)$);
+    \path [line] (mid12) -- ($(mid12)+(0,0.6)$) -| ($(concat.south)+(-0.35,0)$);
+
+    % Block 2 output (from block2.east) goes horizontally right to concat.south-east's x, then straight up
+    \path [line] (block2.east) -| ($(concat.south)+(+0.35,0)$);
+
+    % --- Concat onwards ---
+    \path [line] (concat) -- (cv2);
+    \path [line] (cv2)    -- (output);
+\end{tikzpicture}
 \caption{Sơ đồ khối C3k2 --- forward theo C2f, block bên trong tùy cấu hình.}
 \label{fig:c3k2}
 \end{figure}
@@ -192,7 +289,53 @@ SPPF mở rộng vùng nhận cảm ngữ cảnh (receptive field) bằng cách 
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.55\textwidth]{sppf_block.png}
+\begin{tikzpicture}[node distance=0cm, auto]
+    % --- Top row: processing chain ---
+    \node (input) []                             {Input $x$};
+    \node (cv1)   [block,       right=0.8cm of input] {Conv 1x1\\(cv1)};
+    \node (mp1)   [orangeblock, right=1.5cm of cv1]   {MaxPool 5x5\\(mp1)};
+    \node (mp2)   [orangeblock, right=1.5cm of mp1]   {MaxPool 5x5\\(mp2)};
+    \node (mp3)   [orangeblock, right=1.5cm of mp2]   {MaxPool 5x5\\(mp3)};
+
+    % --- Bottom row: Concat well below so drop-lines have clearance ---
+    \node (concat) [grayblock, below=2.2cm of mp2]     {Concat};
+    \node (cv2)    [block,     right=1.0cm of concat]  {Conv 1x1\\(cv2)};
+    \node (output) [right=0.8cm of cv2]                {Output};
+
+    % --- Tap coordinates: midpoints of each gap ---
+    \coordinate (T0) at ($(cv1.east)!0.5!(mp1.west)$);
+    \coordinate (T1) at ($(mp1.east)!0.5!(mp2.west)$);
+    \coordinate (T2) at ($(mp2.east)!0.5!(mp3.west)$);
+    \coordinate (T3) at ($(mp3.east)+(0.6,0)$);
+
+    % --- Main chain connections ---
+    \path [line] (input) -- (cv1);
+    \draw [-]    (cv1.east) -- (T0);
+    \path [line] (T0)       -- (mp1.west);
+    \draw [-]    (mp1.east) -- (T1);
+    \path [line] (T1)       -- (mp2.west);
+    \draw [-]    (mp2.east) -- (T2);
+    \path [line] (T2)       -- (mp3.west);
+    \draw [-]    (mp3.east) -- (T3);
+
+    % --- Vertical drops with two separate horizontal levels to prevent overlaps ---
+    \coordinate (L_high) at ($(concat.north)+(0,1.2)$);
+    \coordinate (L_low)  at ($(concat.north)+(0,0.6)$);
+
+    \coordinate (Concat1) at ($(concat.north)+(-0.6,0)$);
+    \coordinate (Concat2) at ($(concat.north)+(-0.2,0)$);
+    \coordinate (Concat3) at ($(concat.north)+(+0.2,0)$);
+    \coordinate (Concat4) at ($(concat.north)+(+0.6,0)$);
+
+    \path [line] (T0) -- (T0 |- L_high) -| (Concat1);
+    \path [line] (T1) -- (T1 |- L_low)  -| (Concat2);
+    \path [line] (T2) -- (T2 |- L_low)  -| (Concat3);
+    \path [line] (T3) -- (T3 |- L_high) -| (Concat4);
+
+    % --- Concat to output ---
+    \path [line] (concat) -- (cv2);
+    \path [line] (cv2)    -- (output);
+\end{tikzpicture}
 \caption{Sơ đồ khối SPPF --- MaxPool liên tiếp tạo multi-scale receptive field.}
 \label{fig:sppf}
 \end{figure}
@@ -210,8 +353,34 @@ SPPF mở rộng vùng nhận cảm ngữ cảnh (receptive field) bằng cách 
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.75\textwidth]{sppf_maxpool_matrices.png}
-\caption{Minh họa MaxPool 5x5 qua 3 lần liên tiếp --- tạo các receptive field có kích thước tương đương $5\times5$, $9\times9$, và $13\times13$.}
+\begin{tikzpicture}[scale=0.35]
+    % Draw grids/boxes
+    % Outer box 13x13 (represented as coordinates from -6.5 to 6.5)
+    \draw[thick, draw=red!70!black, fill=red!5, fill opacity=0.4] (-6.5,-6.5) rectangle (6.5,6.5);
+    % Middle box 9x9 (from -4.5 to 4.5)
+    \draw[thick, draw=orange!80!black, fill=orange!5, fill opacity=0.5] (-4.5,-4.5) rectangle (4.5,4.5);
+    % Inner box 5x5 (from -2.5 to 2.5)
+    \draw[thick, draw=blue!80!black, fill=blue!5, fill opacity=0.6] (-2.5,-2.5) rectangle (2.5,2.5);
+    
+    % Draw center pixel
+    \draw[fill=black] (-0.5,-0.5) rectangle (0.5,0.5);
+    \node[white, font=\tiny] at (0,0) {C};
+
+    % Draw grid lines for illustration
+    \draw[step=1cm, gray!30, very thin] (-6.5,-6.5) grid (6.5,6.5);
+
+    % Labels
+    \node[blue!80!black, font=\small\bfseries] at (0, 1.2) {$5 \times 5$};
+    \node[orange!80!black, font=\small\bfseries] at (0, 3.2) {$9 \times 9$};
+    \node[red!70!black, font=\small\bfseries] at (0, 5.2) {$13 \times 13$};
+    
+    % Legends on the right
+    \node[anchor=west, font=\small] at (7.5, 3) {\textcolor{blue!80!black}{\textbf{Lần 1 (mp1)}}: Receptive Field $5 \times 5$};
+    \node[anchor=west, font=\small] at (7.5, 1) {\textcolor{orange!80!black}{\textbf{Lần 2 (mp2)}}: Receptive Field $9 \times 9$};
+    \node[anchor=west, font=\small] at (7.5, -1) {\textcolor{red!70!black}{\textbf{Lần 3 (mp3)}}: Receptive Field $13 \times 13$};
+    \node[anchor=west, font=\small] at (7.5, -3) {\textbf{C}: Điểm ảnh trung tâm (Center Pixel)};
+\end{tikzpicture}
+\caption{Minh họa sự mở rộng receptive field tương đương $5\times5$, $9\times9$, và $13\times13$ qua 3 lần MaxPool 5x5 liên tiếp.}
 \label{fig:sppf_maxpool}
 \end{figure}
 
@@ -227,10 +396,83 @@ Khác với SPPF gốc (Ultralytics) dùng \texttt{act=True} (SiLU) trên lớp 
 \label{subsec:attention}
 
 Trong các cấu hình nâng cao của YOLO26, Multi-Head Self-Attention được chèn vào Neck (h22) và Backbone (b10) để bắt cặp các tương quan không gian toàn cục:
-
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.55\textwidth]{attention_block.png}
+\begin{tikzpicture}[node distance=0cm, auto,
+    every node/.style={font=\small},
+    block/.append style={minimum width=1.6cm},
+    purpleblock/.append style={minimum width=1.4cm}
+]
+
+    % Main pipeline nodes
+    \node (input)   []                              {Input $x$};
+    \node (qkv)     [block, right=0.6cm of input]   {QKV Proj.\\(Conv 1x1)};
+
+    % Q, K, V stacked vertically
+    \node (k)       [purpleblock, right=0.8cm of qkv]               {Key $K$};
+    \node (q)       [purpleblock, above=0.2cm of k]                 {Query $Q$};
+    \node (v)       [purpleblock, below=0.2cm of k]                 {Value $V$};
+
+    % Softmax block
+    \node (softmax) [grayblock, right=0.8cm of k, yshift=0.5cm, minimum width=2.2cm, font=\footnotesize]
+                    {Softmax\\$\left(\dfrac{Q{\cdot}K^T}{\sqrt{d_k}}\right)$};
+
+    % Attn*V block on the main line
+    \node (matmul)  [grayblock, right=3.8cm of k]                   {Attn$\,{\cdot}\,V$};
+
+    % PE node below matmul
+    \node (pe)      [block, below=0.6cm of matmul]                  {PE (DWConv 3x3)};
+
+    % Sum nodes on the main line
+    \node (sum_pe)  [sum, right=0.8cm of matmul];
+    \node (sum_res) [sum, right=0.8cm of sum_pe];
+    \node (output)  [right=0.6cm of sum_res]                        {Output};
+
+    % --- connections ---
+    % Input to QKV
+    \path [line] (input) -- (qkv);
+
+    % QKV fan-out to Q, K, V
+    \path [line] (qkv.east) -- ++(0.4,0) |- (q.west);
+    \path [line] (qkv.east) -- ++(0.4,0) |- (k.west);
+    \path [line] (qkv.east) -- ++(0.4,0) |- (v.west);
+
+    % Q and K to Softmax (entering separate vertical offsets horizontally, no overlaps)
+    % Q.east enters Softmax at y = +0.25 (relative to softmax center)
+    % K.east enters Softmax at y = -0.25 (relative to softmax center)
+    \coordinate (Q_in) at ($(softmax.west)+(0, 0.25)$);
+    \coordinate (K_in) at ($(softmax.west)+(0,-0.25)$);
+    
+    \path [line] (q.east) -- ++(0.4,0) |- (Q_in);
+    \path [line] (k.east) -- ++(0.4,0) |- (K_in);
+
+    % Softmax to Attn*V
+    \path [line] (softmax.east) -- ++(0.4,0) |- (matmul.west);
+
+    % V to Attn*V (south port) and PE (west port)
+    % Single horizontal segment from V east, splitting at vbranch
+    \coordinate (vbranch) at ($(v.east)+(0.4,0)$);
+    \coordinate (v_up)    at ($(vbranch)+(0,0.35)$);
+    \draw [-] (v.east) -- (vbranch);
+    
+    % Branch to PE: down then horizontally into PE west
+    \path [line] (vbranch) |- (pe.west);
+    
+    % Branch to Attn*V: go up to clear PE, then horizontally right, then straight up into matmul south
+    \path [line] (vbranch) -- (v_up) -- (v_up -| matmul.south) -- (matmul.south);
+
+    % Attn*V and PE converge at sum_pe (entering north/south ports vertically)
+    \path [line] (matmul.east) -| (sum_pe.north);
+    \path [line] (pe.east)     -| (sum_pe.south);
+
+    % sum_pe to sum_res to output
+    \path [line] (sum_pe)  -- (sum_res);
+    \path [line] (sum_res) -- (output);
+
+    % Global residual connection (centered label on horizontal wire)
+    \coordinate (Rup) at ($(input.north)+(0, 1.9)$);
+    \path [line] (input.north) -- (Rup) -- node[above, midway, font=\small\itshape] {Global Residual Connection} (Rup -| sum_res.north) -- (sum_res.north);
+\end{tikzpicture}
 \caption{Sơ đồ khối Attention với QKV projection và Position Encoding.}
 \label{fig:attention}
 \end{figure}
@@ -250,7 +492,24 @@ Trong các cấu hình nâng cao của YOLO26, Multi-Head Self-Attention đượ
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.85\textwidth]{attention_flow_shapes_matrices.png}
+\begin{tikzpicture}[node distance=1.0cm and 1.2cm, auto]
+    % Nodes
+    \node (x) [grayblock] {Input $x$\\$[B, C, H, W]$};
+    \node (qkv) [block, right=of x] {QKV Projection\\(Conv 1x1)};
+    \node (split) [purpleblock, right=of qkv] {Query $Q$, Key $K$, Value $V$\\$[B, h, N, d]$};
+    \node (attn) [purpleblock, right=of split] {Attention Matrix $A$\\$[B, h, N, N]$};
+    \node (out_v) [purpleblock, below=of attn, yshift=0.3cm] {Output Attention\\$[B, h, N, d]$};
+    \node (reshape) [block, left=of out_v] {Reshape \& Projection};
+    \node (out) [grayblock, left=of reshape] {Output tensor\\$[B, C, H, W]$};
+
+    % Connections
+    \path [line] (x) -- (qkv);
+    \path [line] (qkv) -- (split);
+    \path [line] (split) -- node[above, font=\small] {$Q \cdot K^T$} (attn);
+    \path [line] (attn) -- node[right, font=\small] {$\text{Attn} \cdot V$} (out_v);
+    \path [line] (out_v) -- (reshape);
+    \path [line] (reshape) -- (out);
+\end{tikzpicture}
 \caption{Chi tiết luồng xử lý và sự biến đổi kích thước tensor trong module Attention.}
 \label{fig:attention_flow}
 \end{figure}
@@ -262,7 +521,31 @@ PSABlock tích hợp cơ chế Self-Attention bên trên và một khối Feed-F
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.45\textwidth]{psablock_block.png}
+\begin{tikzpicture}[node distance=0.8cm and 1.2cm, auto]
+    % Nodes
+    \node (input) [splitnode] {};
+    \node (lbl_in) [left=0.15cm of input] {Input $x$};
+    \node (attn) [block, right=of input] {Attention};
+    \node (sum1) [sum, right=of attn];
+    \node (split1) [splitnode, right=of sum1, xshift=-0.3cm] {};
+    \node (ffn) [orangeblock, right=of split1] {FFN};
+    \node (sum2) [sum, right=of ffn];
+    \node (output) [right=0.8cm of sum2] {Output};
+
+    % Connections
+    \path [line] (input) -- (attn);
+    \path [line] (attn) -- (sum1);
+    \path [line] (sum1) -- (split1);
+    \path [line] (split1) -- (ffn);
+    \path [line] (ffn) -- (sum2);
+    \path [line] (sum2) -- (output);
+    
+    % Skip 1 (Attention residual)
+    \path [line] (input) -- ++(0,1.0) -| (sum1.north);
+    
+    % Skip 2 (FFN residual)
+    \path [line] (split1) -- ++(0,1.0) -| (sum2.north);
+\end{tikzpicture}
 \caption{Sơ đồ PSABlock: Attention + FFN với các kết nối residual.}
 \label{fig:psablock}
 \end{figure}
@@ -279,7 +562,18 @@ FFN (Feed-Forward Network) gồm lớp Conv $1\times1$ tăng số kênh ($c \to 
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.45\textwidth]{ffn_block.png}
+\begin{tikzpicture}[node distance=1.0cm and 1.2cm, auto]
+    % Nodes
+    \node (input) [] {Input $x_1$ (Kênh $c$)};
+    \node (cv1) [block, right=of input] {Conv 1x1 + SiLU\\(cv1: $c \to 2c$)};
+    \node (cv2) [block, right=of cv1] {Conv 1x1\\(cv2: $2c \to c$)};
+    \node (output) [right=of cv2] {Output (Kênh $c$)};
+
+    % Connections
+    \path [line] (input) -- (cv1);
+    \path [line] (cv1) -- (cv2);
+    \path [line] (cv2) -- (output);
+\end{tikzpicture}
 \caption{Sơ đồ khối FFN (Feed-Forward Network) trong PSABlock.}
 \label{fig:ffn_block}
 \end{figure}
@@ -291,7 +585,28 @@ Khối C2PSA áp dụng cơ chế chia nhánh (Channel-Split) của CSPNet kết
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.45\textwidth]{c2psa_block.png}
+\begin{tikzpicture}[node distance=0.6cm and 0.8cm, auto]
+    % Nodes
+    \node (input) [] {Input $x$};
+    \node (cv1) [block, right=of input] {Conv 1x1\\(cv1)};
+    \node (split) [splitnode, right=of cv1, xshift=-0.2cm] {};
+    \node (psablock) [orangeblock, right=of split] {PSABlock};
+    \node (concat) [grayblock, right=of psablock] {Concat};
+    \node (cv2) [block, right=of concat] {Conv 1x1\\(cv2)};
+    \node (output) [right=of cv2] {Output};
+
+    % Connections
+    \path [line] (input) -- (cv1);
+    \path [line] (cv1) -- (split);
+    \path [line] (split) -- (psablock);
+    \path [line] (psablock) -- (concat);
+    \path [line] (concat) -- (cv2);
+    \path [line] (cv2) -- (output);
+    
+    % Upper shortcut (Branch a)
+    \coordinate (SplitUp) at ($(split)+(0,1.0)$);
+    \path [line] (split) -- (SplitUp) -- node[above, midway, font=\small] {Nhánh $a$ (đi thẳng)} (SplitUp -| concat.north) -- (concat.north);
+\end{tikzpicture}
 \caption{Sơ đồ C2PSA: CSP splitting + PSABlock.}
 \label{fig:c2psa}
 \end{figure}
@@ -306,7 +621,44 @@ Khối C2PSA áp dụng cơ chế chia nhánh (Channel-Split) của CSPNet kết
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.85\textwidth]{sppf_c2psa_featuremap_transform.png}
+\begin{tikzpicture}[auto]
+    % Input grid
+    \draw[step=0.2cm, gray!20, very thin] (0,0) grid (2,2);
+    \draw[thick, draw=black] (0,0) rectangle (2,2);
+    \draw[fill=blue!40] (0.8, 0.8) rectangle (1.2, 1.2);
+    \node[below=0.3cm, font=\small\bfseries, align=center] at (1, 0) {Đặc trưng cục bộ};
+    
+    % Arrow 1
+    \draw[thick, ->] (2.4, 1) -- node[above=2pt, font=\small\bfseries] {SPPF} (3.9, 1);
+    
+    % SPPF output grid (shifted by 4.3cm)
+    \begin{scope}[xshift=4.3cm]
+        \draw[step=0.2cm, gray!20, very thin] (0,0) grid (2,2);
+        \draw[thick, draw=black] (0,0) rectangle (2,2);
+        \draw[fill=blue!40] (0.8, 0.8) rectangle (1.2, 1.2);
+        % Concentric rings of receptive fields
+        \draw[orange, thick, dashed] (1,1) circle (0.4cm);
+        \draw[red, thick, dashed] (1,1) circle (0.8cm);
+        \node[below=0.3cm, font=\small\bfseries, align=center] at (1, 0) {Đa quy mô\\(Multi-scale)};
+    \end{scope}
+    
+    % Arrow 2
+    \draw[thick, ->] (6.7, 1) -- node[above=2pt, font=\small\bfseries] {C2PSA} (8.2, 1);
+    
+    % C2PSA output grid (shifted by 8.6cm)
+    \begin{scope}[xshift=8.6cm]
+        \draw[step=0.2cm, gray!20, very thin] (0,0) grid (2,2);
+        \draw[thick, draw=black] (0,0) rectangle (2,2);
+        \draw[fill=blue!40] (0.8, 0.8) rectangle (1.2, 1.2);
+        % Arrows pointing everywhere representing global attention
+        \foreach \x in {0.2, 0.6, 1.4, 1.8} {
+            \foreach \y in {0.2, 0.6, 1.4, 1.8} {
+                \draw[blue!60, -latex, thin] (1,1) -- (\x, \y);
+            }
+        }
+        \node[below=0.3cm, font=\small\bfseries, align=center] at (1, 0) {Ngữ cảnh toàn cục};
+    \end{scope}
+\end{tikzpicture}
 \caption{Mô phỏng sự biến đổi của feature map khi đi qua SPPF và C2PSA.}
 \label{fig:sppf_c2psa_transform}
 \end{figure}
@@ -322,7 +674,20 @@ Khối C2PSA áp dụng cơ chế chia nhánh (Channel-Split) của CSPNet kết
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.85\textwidth]{special_blocks_overview.png}
+\begin{tikzpicture}[node distance=1.0cm and 1.2cm, auto]
+    % Nodes
+    \node (p5_in) [grayblock] {Đặc trưng P5\\ Backbone};
+    \node (c3k2) [block, right=of p5_in] {C3k2 (c3k=True)\\ {[Trích xuất đặc trưng]}};
+    \node (sppf) [orangeblock, right=of c3k2] {SPPF\\ {[Mở rộng trường cảm]}};
+    \node (c2psa) [purpleblock, right=of sppf] {C2PSA\\ {[Học ngữ cảnh toàn cục]}};
+    \node (neck) [grayblock, right=of c2psa] {Neck / Head\\ {[Khối phát hiện]}};
+
+    % Connections
+    \path [line] (p5_in) -- (c3k2);
+    \path [line] (c3k2) -- (sppf);
+    \path [line] (sppf) -- (c2psa);
+    \path [line] (c2psa) -- (neck);
+\end{tikzpicture}
 \caption{Tổng quan cách tổ chức các khối đặc biệt: C3k2, SPPF, và C2PSA trong YOLO26.}
 \label{fig:blocks_overview}
 \end{figure}

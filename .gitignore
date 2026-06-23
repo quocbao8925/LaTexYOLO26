@@ -1,0 +1,57 @@
+# ============================================================
+# GITIGNORE — YOLO26 LaTeX Report
+# ============================================================
+
+# --- LaTeX Intermediate / Auxiliary Files ---
+# These are generated during compilation and should not be tracked
+*.aux
+*.bbl
+*.blg
+*.bcf
+*.fls
+*.fdb_latexmk
+*.lof
+*.log
+*.lot
+*.out
+*.run.xml
+*.toc
+*.synctex.gz
+*.pdf
+*.dvi
+*.ps
+*.idx
+*.ilg
+*.ind
+*.glo
+*.gls
+*.acn
+*.acr
+*.alg
+*.maf
+*.mtc
+*.mtc0
+*.pyg
+
+# --- Editor / System Files ---
+.DS_Store
+Thumbs.db
+*.swp
+*.bak
+.vscode/
+.idea/
+
+# --- Image Files Rule ---
+# Ignore all image formats globally to prevent cluttering the repository
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.svg
+*.bmp
+*.tiff
+
+# EXCEPT for the figures folder and all its contents
+!figures/
+!figures/**

@@ -25,8 +25,72 @@ Phiên bản Ultralytics đạt kết quả tốt hơn nhờ được huấn luy
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.85\textwidth]{results_plot.png}
-    \caption{Biểu đồ kết quả huấn luyện và so sánh mAP giữa YOLO26 gốc (Ultralytics) và YOLO26 Custom.}
+    \begin{tabular}{cc}
+    \begin{tikzpicture}
+    \begin{axis}[
+        width=0.48\textwidth, height=4.5cm,
+        xlabel={Epoch}, ylabel={Box Loss},
+        xmin=0, xmax=72, ymin=1.0, ymax=3.5,
+        grid=major, grid style={dashed,color=gray!20},
+        axis line style={draw=gray!80},
+        tick label style={font=\tiny}, label style={font=\tiny},
+        legend style={font=\tiny, draw=gray!30, fill=white, at={(0.95,0.95)}, anchor=north east}
+    ]
+    \addplot[blue!80!black, thick] table [x=epoch, y=box_loss, col sep=comma] {results.csv};
+    \addlegendentry{Train}
+    \addplot[red!80!black, thick] table [x=epoch, y=val_box_loss, col sep=comma] {results.csv};
+    \addlegendentry{Val}
+    \end{axis}
+    \end{tikzpicture}
+    &
+    \begin{tikzpicture}
+    \begin{axis}[
+        width=0.48\textwidth, height=4.5cm,
+        xlabel={Epoch}, ylabel={Cls Loss},
+        xmin=0, xmax=72, ymin=1.0, ymax=5.0,
+        grid=major, grid style={dashed,color=gray!20},
+        axis line style={draw=gray!80},
+        tick label style={font=\tiny}, label style={font=\tiny},
+        legend style={font=\tiny, draw=gray!30, fill=white, at={(0.95,0.95)}, anchor=north east}
+    ]
+    \addplot[blue!80!black, thick] table [x=epoch, y=cls_loss, col sep=comma] {results.csv};
+    \addlegendentry{Train}
+    \addplot[red!80!black, thick] table [x=epoch, y=val_cls_loss, col sep=comma] {results.csv};
+    \addlegendentry{Val}
+    \end{axis}
+    \end{tikzpicture}
+    \\
+    \begin{tikzpicture}
+    \begin{axis}[
+        width=0.48\textwidth, height=4.5cm,
+        xlabel={Epoch}, ylabel={mAP@50},
+        xmin=0, xmax=72, ymin=0.3, ymax=0.8,
+        grid=major, grid style={dashed,color=gray!20},
+        axis line style={draw=gray!80},
+        tick label style={font=\tiny}, label style={font=\tiny},
+        legend style={font=\tiny, draw=gray!30, fill=white, at={(0.95,0.05)}, anchor=south east}
+    ]
+    \addplot[green!60!black, thick] table [x=epoch, y=mAP50, col sep=comma] {results.csv};
+    \addlegendentry{mAP@50}
+    \end{axis}
+    \end{tikzpicture}
+    &
+    \begin{tikzpicture}
+    \begin{axis}[
+        width=0.48\textwidth, height=4.5cm,
+        xlabel={Epoch}, ylabel={Learning Rate},
+        xmin=0, xmax=72, ymin=0, ymax=0.012,
+        grid=major, grid style={dashed,color=gray!20},
+        axis line style={draw=gray!80},
+        tick label style={font=\tiny}, label style={font=\tiny},
+        legend style={font=\tiny, draw=gray!30, fill=white, at={(0.95,0.95)}, anchor=north east}
+    ]
+    \addplot[purple!80!black, thick] table [x=epoch, y=lr, col sep=comma] {results.csv};
+    \addlegendentry{LR}
+    \end{axis}
+    \end{tikzpicture}
+    \end{tabular}
+    \caption{Biểu đồ kết quả huấn luyện và so sánh mAP của mô hình YOLO26 Custom qua các epochs (trực quan hóa từ dữ liệu results.csv).}
     \label{fig:results_plot}
 \end{figure}
 
