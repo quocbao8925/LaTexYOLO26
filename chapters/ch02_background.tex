@@ -237,6 +237,14 @@ CIoU mở rộng IoU bằng cách bổ sung thêm các yếu tố hình học:
     \item Hệ điều hành: Raspberry Pi OS (Linux)
 \end{itemize}
 
+Chi tiết hình dáng và cấu tạo phần cứng của bo mạch được minh họa trong Hình~\ref{fig:raspi5}.
+
+\begin{center}
+    \includegraphics[width=0.55\textwidth]{raspi5.png}
+    \captionof{figure}{Board Raspberry Pi 5}
+    \label{fig:raspi5}
+\end{center}
+
 So với các giải pháp AI edge khác (NVIDIA Jetson, Google Coral), \rpi có ưu điểm về chi phí thấp, cộng đồng hỗ trợ lớn, nhưng bị hạn chế về hiệu năng GPU/NPU. Đồ án này chứng minh rằng với kiến trúc mô hình phù hợp (\yolo) và runtime tối ưu (NCNN), CPU thuần của \rpi vẫn đủ khả năng chạy object detection thời gian thực.
 
 % -------------------------------------------------------------------
