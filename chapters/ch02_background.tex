@@ -9,6 +9,13 @@
 
 Object Detection (phát hiện đối tượng) là bài toán kết hợp hai tác vụ: \textit{phân loại} (classification) --- xác định đối tượng thuộc lớp nào, và \textit{định vị} (localization) --- xác định vị trí đối tượng trong ảnh thông qua bounding box.
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{objectdet.png.jpg}
+    \caption{Minh họa bài toán Object Detection (kết hợp phân loại và định vị)}
+    \label{fig:object_detection_illustration}
+\end{figure}
+
 \subsection{Phân loại kiến trúc}
 
 Các kiến trúc Object Detection được chia thành hai nhóm chính:
@@ -33,6 +40,12 @@ Ngoài ra, các phương pháp còn được phân loại theo cách xử lý an
     \label{eq:iou}
 \end{equation}
 
+\begin{center}
+    \includegraphics[width=0.55\textwidth]{iou.jpg}
+    \captionof{figure}{Ví dụ tính toán IoU}
+    \label{fig:iou_example}
+\end{center}
+
 \textbf{Precision và Recall}:
 \begin{equation}
     \text{Precision} = \frac{TP}{TP + FP}, \quad
@@ -41,6 +54,20 @@ Ngoài ra, các phương pháp còn được phân loại theo cách xử lý an
 \end{equation}
 
 \noindent trong đó $TP$ là True Positive (dự đoán đúng), $FP$ là False Positive (dự đoán sai), $FN$ là False Negative (bỏ sót).
+
+\textbf{F1-Score}: Là trung bình điều hòa (harmonic mean) của Precision và Recall, giúp đánh giá một cách cân bằng giữa hai chỉ số này:
+\begin{equation}
+    F_1 = 2 \cdot \frac{\text{Precision} \cdot \text{Recall}}{\text{Precision} + \text{Recall}} = \frac{2 \cdot TP}{2 \cdot TP + FP + FN}
+    \label{eq:f1_score}
+\end{equation}
+
+Sự phụ thuộc của F1-Score vào cả Precision và Recall được minh họa trong Hình~\ref{fig:f1_score_dependency}. Do đặc tính của trung bình điều hòa, chỉ số F1-Score sẽ bị kéo về phía giá trị thấp hơn trong hai chỉ số. Điều này đảm bảo mô hình chỉ đạt F1-Score cao khi cả Precision và Recall đều đạt kết quả tốt.
+
+\begin{center}
+    \includegraphics[width=0.55\textwidth]{f1_score_dependency.png}
+    \captionof{figure}{Sự phụ thuộc của F1-Score vào Precision và Recall}
+    \label{fig:f1_score_dependency}
+\end{center}
 
 \textbf{mAP (mean Average Precision)}: Trung bình của Average Precision trên tất cả các lớp:
 \begin{equation}
@@ -68,7 +95,7 @@ Kể từ phiên bản đầu tiên~(YOLOv1, 2015), dòng YOLO đã trải qua n
     \item \textbf{YOLOv1--v3}: Xây dựng nền tảng kiến trúc Darknet, giới thiệu multi-scale prediction.
     \item \textbf{YOLOv4--v5}: Tối ưu hóa kỹ thuật huấn luyện (CSP, Mosaic augmentation, PANet).
     \item \textbf{YOLOX}: Chuyển sang Decoupled Head (tách nhánh classification và regression), giới thiệu anchor-free detection.
-    \item \textbf{YOLOv8}: Thống nhất kiến trúc cho nhiều tác vụ (detection, segmentation, pose), sử dụng DFL (Distribution Focal Loss) cho hồi quy bounding box.
+    \item \textbf{YOLOv8}~\cite{ultralytics}: Thống nhất kiến trúc cho nhiều tác vụ (detection, segmentation, pose), sử dụng DFL (Distribution Focal Loss) cho hồi quy bounding box.
     \item \textbf{YOLOv9}: Giới thiệu PGI (Programmable Gradient Information) và GELAN.
     \item \textbf{YOLO11}~\cite{yolo11}: Cải tiến về hiệu suất và hỗ trợ đa tác vụ.
     \item \textbf{YOLO26}~\cite{yolo26}: Loại bỏ NMS hoàn toàn (NMS-free), thay DFL bằng Direct Regression, giới thiệu ProgLoss và MuSGD optimizer --- đây là mô hình được sử dụng trong đồ án.
@@ -83,6 +110,47 @@ Kể từ phiên bản đầu tiên~(YOLOv1, 2015), dòng YOLO đã trải qua n
     \item \textbf{Kiến trúc hợp nhất}: Hỗ trợ đồng thời Detection, Segmentation, Pose, OBB và Classification trong cùng một kiến trúc.
     \item \textbf{MuSGD Optimizer}: Kết hợp SGD truyền thống và Muon (trực giao hóa gradient bằng Newton-Schulz) giúp hội tụ nhanh và ổn định hơn.
 \end{enumerate}
+
+\subsection{So sánh YOLO26 và YOLOv8}
+\label{subsec:yolo26_vs_yolov8}
+
+Sự ra đời của YOLO26 vào đầu năm 2026 đánh dấu bước nhảy vọt lớn so với thế hệ YOLOv8~\cite{ultralytics} (ra mắt đầu năm 2023) về cả kiến trúc lẫn hiệu năng thực tế. Các cải tiến cốt lõi và sự khác biệt kiến trúc chính bao gồm:
+
+\begin{itemize}
+    \item \textbf{Cơ chế suy luận (NMS-Free vs. NMS-Required)}: YOLOv8 đòi hỏi bước hậu xử lý phi cực đại (Non-Maximum Suppression - NMS) bên ngoài để lọc các bounding box trùng lặp, gây trễ suy luận lớn trên CPU. YOLO26 loại bỏ hoàn toàn NMS nhờ thiết kế One-to-One đầu cuối (end-to-end), giúp tối ưu hóa đáng kể tốc độ suy luận.
+    \item \textbf{Đơn giản hóa đầu Regression (DFL-Free vs. DFL-Based)}: YOLOv8 sử dụng Distribution Focal Loss (DFL) để hồi quy vị trí cạnh hộp qua phân phối xác suất. YOLO26 loại bỏ DFL để chuyển sang hồi quy trực tiếp (Direct Regression) không ràng buộc, giúp tinh giản cấu trúc đầu ra của mô hình và tăng khả năng tương thích khi chuyển đổi định dạng biên (như ONNX, TFLite).
+    \item \textbf{Thuật toán huấn luyện nâng cao}: YOLO26 áp dụng các kỹ thuật huấn luyện tiên tiến hơn YOLOv8 như bộ tối ưu hóa MuSGD (kết hợp SGD với trực giao hóa Newton-Schulz của Muon), Progressive Loss (ProgLoss) để chuyển dịch giám sát dần sang đầu suy luận, và STAL (Scale-Tolerant Anchor Loss) để tăng vùng bao nhãn dương cho vật thể nhỏ.
+\end{itemize}
+
+Bảng~\ref{tab:yolo26_vs_yolov8} so sánh chi tiết các thông số của YOLO26 và YOLOv8 trên tập dữ liệu COCO ở các mức scale khác nhau.
+
+\begin{table}[H]
+\centering
+\caption{So sánh hiệu năng giữa các phiên bản YOLO26 và YOLOv8 (kích thước ảnh $640\times 640$)}
+\label{tab:yolo26_vs_yolov8}
+\begin{tabular}{lccccc}
+\hline
+\textbf{Mô hình} & \textbf{mAP}$^{50-95}$ (\%) & \textbf{CPU ONNX} (ms) & \textbf{T4 TensorRT} (ms) & \textbf{Tham số} (M) & \textbf{FLOPs} (B) \\
+\hline
+YOLO26n & \textbf{40.9} & \textbf{38.9} & 1.70 & \textbf{2.4} & \textbf{5.4} \\
+YOLOv8n & 37.3 & 80.4 & \textbf{1.47} & 3.2 & 8.7 \\
+\hline
+YOLO26s & \textbf{48.6} & \textbf{87.2} & \textbf{2.50} & \textbf{9.5} & \textbf{20.7} \\
+YOLOv8s & 44.9 & 128.4 & 2.66 & 11.2 & 28.6 \\
+\hline
+YOLO26m & \textbf{53.1} & \textbf{220.0} & \textbf{4.70} & \textbf{20.4} & \textbf{68.2} \\
+YOLOv8m & 50.2 & 234.7 & 5.86 & 25.9 & 78.9 \\
+\hline
+YOLO26l & \textbf{55.0} & \textbf{286.2} & \textbf{6.20} & \textbf{24.8} & \textbf{86.4} \\
+YOLOv8l & 52.9 & 375.2 & 9.06 & 43.7 & 165.2 \\
+\hline
+YOLO26x & \textbf{57.5} & 525.8 & \textbf{11.80} & \textbf{55.7} & \textbf{193.9} \\
+YOLOv8x & 53.9 & \textbf{479.1} & 14.37 & 68.2 & 257.8 \\
+\hline
+\end{tabular}
+\end{table}
+
+Số liệu thực tế chỉ ra rằng YOLO26 đạt được sự cải thiện vượt bậc về cả độ chính xác lẫn hiệu năng phần cứng so với thế hệ trước. Nổi bật là phiên bản \texttt{YOLO26n} chạy nhanh hơn tới 43\% trên CPU thông qua suy luận ONNX và tăng 3.6\% mAP so với \texttt{YOLOv8n}, trong khi lượng tham số giảm khoảng 25\% và FLOPs giảm khoảng 38\%. Điều này biến YOLO26 thành kiến trúc tối ưu vượt trội cho các ứng dụng thời gian thực trên các thiết bị nhúng như Raspberry Pi 5.
 
 % -------------------------------------------------------------------
 \section{Các khái niệm nền tảng}
@@ -101,21 +169,35 @@ Trong \yolo, mỗi khối \texttt{Conv} bao gồm ba thành phần: \textit{Conv
 
 \subsection{Batch Normalization (BN)}
 
-Chuẩn hóa đầu ra của mỗi lớp theo batch, giúp ổn định quá trình huấn luyện:
+Chuẩn hóa đầu ra của mỗi lớp theo batch, giúp ổn định quá trình huấn luyện, giảm sự phụ thuộc vào việc khởi tạo trọng số và tăng tốc độ hội tụ:
 \begin{equation}
     \hat{x}_i = \frac{x_i - \mu_B}{\sqrt{\sigma_B^2 + \epsilon}} \cdot \gamma + \beta
     \label{eq:batchnorm}
 \end{equation}
 
+\noindent trong đó $\mu_B$ và $\sigma_B^2$ lần lượt là trung bình và phương sai tính toán trên mini-batch $B$, $\epsilon$ là hằng số nhỏ để tránh chia cho 0, $\gamma$ và $\beta$ là các tham số học (scale và shift). Quá trình chuẩn hóa và dịch chuyển phân phối của lớp được minh họa trong Hình~\ref{fig:batch_norm_distribution}.
+
+\begin{center}
+    \includegraphics[width=0.55\textwidth]{batch_norm_distribution.png}
+    \captionof{figure}{Sự biến đổi phân phối dữ liệu qua các bước của Batch Normalization}
+    \label{fig:batch_norm_distribution}
+\end{center}
+
 \subsection{Hàm kích hoạt SiLU}
 
-SiLU (Sigmoid Linear Unit), còn gọi là Swish, là hàm kích hoạt được sử dụng xuyên suốt trong \yolo:
+SiLU (Sigmoid Linear Unit), còn gọi là Swish, là hàm kích hoạt phi tuyến tính được sử dụng xuyên suốt trong \yolo:
 \begin{equation}
     \text{SiLU}(x) = x \cdot \sigma(x) = \frac{x}{1 + e^{-x}}
     \label{eq:silu}
 \end{equation}
 
-So với ReLU, SiLU cho phép gradient khác không ở vùng giá trị âm, giúp mô hình học tốt hơn.
+Đồ thị so sánh giữa SiLU, ReLU và Sigmoid được thể hiện trong Hình~\ref{fig:silu_activation}. So với ReLU, SiLU có đặc tính trơn tru (smooth) và cho phép dòng gradient khác không ở vùng giá trị âm gần 0, giúp hạn chế hiện tượng chết neuron (dying ReLU) và tối ưu hóa quá trình lan truyền ngược.
+
+\begin{center}
+    \includegraphics[width=0.55\textwidth]{silu_activation.png}
+    \captionof{figure}{So sánh hàm kích hoạt SiLU với ReLU và Sigmoid}
+    \label{fig:silu_activation}
+\end{center}
 
 \subsection{Feature Pyramid Network (FPN) và PANet}
 
