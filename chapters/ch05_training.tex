@@ -26,6 +26,14 @@ model.train(
 )
 \end{lstlisting}
 
+Lý do lựa chọn kích thước ảnh huấn luyện \texttt{imgsz=224} (thấp hơn độ phân giải gốc $320 \times 320$ của bộ dữ liệu) trong thử nghiệm này bao gồm:
+\begin{itemize}
+    \item \textbf{Tối ưu hóa tài nguyên}: Giảm lượng tính toán và dung lượng VRAM, giúp chạy được kích thước lô \texttt{batch=64} trên GPU Kaggle mà không bị lỗi tràn bộ nhớ (OOM).
+    \item \textbf{Tăng tốc độ thử nghiệm}: Rút ngắn thời gian mỗi epoch giúp nhanh chóng xác thực toàn bộ pipeline huấn luyện và thiết lập ghi nhật ký (logging).
+    \item \textbf{Phù hợp thiết bị biên}: Việc giảm độ phân giải đầu vào là giải pháp phổ biến để tăng tốc độ suy luận (FPS) khi triển khai thực tế trên Raspberry Pi 5.
+    \item \textbf{Làm mốc đối chứng (Baseline)}: Sử dụng làm baseline cơ sở trước khi nâng lên độ phân giải đầy đủ $320 \times 320$ ở các phiên bản custom tiếp theo để chứng minh hiệu quả cải tiến.
+\end{itemize}
+
 \begin{table}[H]
     \centering
     \caption{Siêu tham số huấn luyện YOLO26 gốc}

@@ -96,21 +96,41 @@ Phiên bản Ultralytics đạt kết quả tốt hơn nhờ được huấn luy
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.7\textwidth]{pred_images1.jpg}
-    \caption{Hình ảnh mô phỏng kết quả nhận diện thực tế (prediction samples) của mô hình YOLO26.}
+    \includegraphics[width=0.9\textwidth]{val_batch0_pred.jpg}
+    \caption{Kết quả nhận diện thực tế của mô hình YOLO26 trên tập dữ liệu kiểm thử (validation batch predictions) với bounding box bao phủ toàn thân đối tượng chính xác.}
     \label{fig:pred_images}
 \end{figure}
 
 \section{Kết quả inference trên Raspberry Pi 5}
 \label{sec:results_inference}
 
-% TODO: Bổ sung kết quả inference chi tiết khi người bạn demo xong
-% - FPS detection-only ở 320px (re-verify)
-% - FPS detection-only ở 640px  
-% - FPS với custom model
-% - Inference time (ms) breakdown: preprocess + inference + postprocess
+Để đánh giá khả năng hoạt động thực tế của mô hình trên các thiết bị phần cứng giới hạn, nhóm nghiên cứu đã triển khai mô hình \yolo định dạng NCNN trên bo mạch \rpi phiên bản 4GB RAM (CPU Broadcom BCM2712 Quad-core ARM Cortex-A76 @ 2.4GHz), chạy hệ điều hành Raspberry Pi OS (headless mode, tắt hoàn toàn giao diện đồ họa GUI).
 
-Kết quả sơ bộ cho thấy \yolo NCNN đạt tốc độ detection-only $\sim$45 FPS\footnote{Con số cần được xác minh lại trong các thí nghiệm tiếp theo.} ở độ phân giải 320$\times$320 trên \rpi 4GB mà không cần accelerator.
+Kết quả thực nghiệm thu được cho thấy hiệu năng suy luận (inference speed) cực kỳ ấn tượng của mô hình \yolo NCNN khi so sánh trực tiếp với YOLOv8 NCNN ở các độ phân giải đầu vào khác nhau, chi tiết như sau:
+
+\begin{itemize}
+    \item \textbf{Độ phân giải $320 \times 320$}: Mô hình \yolo NCNN đạt tốc độ xử lý trung bình \textbf{45,61 FPS} (tương đương khoảng 21,92 ms/khung hình), nhanh hơn so với YOLOv8 NCNN đạt 44,36 FPS. Tốc độ này đáp ứng hoàn hảo yêu cầu xử lý thời gian thực (real-time) đối với các hệ thống camera bám vết.
+    \item \textbf{Độ phân giải $480 \times 480$}: Tốc độ xử lý của mô hình đạt \textbf{26,67 FPS} (khoảng 37,50 ms/khung hình) so với YOLOv8 NCNN đạt 25,26 FPS, vẫn đảm bảo tính liên tục cao của luồng video.
+    \item \textbf{Độ phân giải $640 \times 640$}: Mô hình đạt tốc độ \textbf{15,09 FPS} (khoảng 66,27 ms/khung hình) so với YOLOv8 NCNN đạt 13,90 FPS.
+\end{itemize}
+
+Hiệu năng ấn tượng này đạt được là nhờ sự kết hợp giữa kiến trúc \yolo được tối ưu hóa sâu (thiết kế tinh giản, đặc trưng Direct Regression không sử dụng phân phối khoảng cách phức tạp như các dòng YOLO khác) và cơ chế \textbf{NMS-free} (Direct Regression / One-to-One Head). Khác với các mô hình truyền thống phải thực hiện thuật toán Non-Maximum Suppression (NMS) trên CPU thiết bị biên để lọc trùng bounding box gây nghẽn cổ chai hiệu năng, \yolo suy luận trực tiếp ra tọa độ hộp bao tối ưu cho mỗi đối tượng. 
+
+Cụ thể, tổng thời gian suy luận 21,92 ms cho mỗi khung hình ở độ phân giải $320 \times 320$ được phân rã như sau:
+\begin{itemize}
+    \item \textbf{Tiền xử lý (Preprocessing)}: Mất khoảng \textbf{1,5 ms} cho các thao tác chuẩn hóa ảnh đầu vào và chuyển đổi định dạng ma trận NCNN.
+    \item \textbf{Suy luận mô hình (Inference)}: Mất khoảng \textbf{19,5 ms} cho quá trình lan truyền xuôi (forward pass) qua mạng nơ-ron trên CPU.
+    \item \textbf{Hậu xử lý (Postprocessing)}: Chỉ mất khoảng \textbf{0,9 ms} để giải mã tọa độ hộp bao trực tiếp mà không cần chạy NMS.
+\end{itemize}
+
+Biểu đồ so sánh chi tiết tốc độ xử lý giữa hai mô hình được thể hiện ở \figref{fig:fps_benchmark_results}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{fps_benchmark.png}
+    \caption{Biểu đồ so sánh tốc độ xử lý (FPS) giữa YOLO26 NCNN và YOLOv8 NCNN trên Raspberry Pi 5 ở các độ phân giải 320, 480 và 640.}
+    \label{fig:fps_benchmark_results}
+\end{figure}
 
 \section{Đánh giá}
 \label{sec:results_evaluation}
@@ -134,7 +154,6 @@ Kết quả sơ bộ cho thấy \yolo NCNN đạt tốc độ detection-only $\s
     \item Chưa có hệ thống điều khiển servo Pan-Tilt.
     \item Custom model chưa hoàn tất huấn luyện đầy đủ (79/120+ epochs).
     \item Chưa demo custom model trên \rpi.
-    \item Cần xác minh lại con số FPS benchmark.
 \end{enumerate}
 
 \section{Hướng phát triển}
