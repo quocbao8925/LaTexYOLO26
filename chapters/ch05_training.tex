@@ -339,8 +339,10 @@ ProgLoss tự động điều chỉnh trọng số đóng góp của hai nhánh 
 
 \begin{equation}
 \boxed{
-\mathcal{L}_{\text{total}}(e) = \alpha(e) \cdot \Big[w_{\text{box}}(e) \cdot \mathcal{L}_{\text{box}}^{\text{O2M}} + w_{\text{cls}}(e) \cdot \mathcal{L}_{\text{cls}}^{\text{O2M}} + w_{\text{dfl}} \cdot \mathcal{L}_{\text{dfl}}^{\text{O2M}}\Big]
-+ \beta(e) \cdot \Big[w_{\text{box}}(e) \cdot \mathcal{L}_{\text{box}}^{\text{O2O}} + w_{\text{cls}}(e) \cdot \mathcal{L}_{\text{cls}}^{\text{O2O}} + w_{\text{dfl}} \cdot \mathcal{L}_{\text{dfl}}^{\text{O2O}}\Big]
+\begin{aligned}
+\mathcal{L}_{\text{total}}(e) = \; &\alpha(e) \cdot \Big[w_{\text{box}}(e) \cdot \mathcal{L}_{\text{box}}^{\text{O2M}} + w_{\text{cls}}(e) \cdot \mathcal{L}_{\text{cls}}^{\text{O2M}} + w_{\text{dfl}} \cdot \mathcal{L}_{\text{dfl}}^{\text{O2M}}\Big] \\
+&+ \beta(e) \cdot \Big[w_{\text{box}}(e) \cdot \mathcal{L}_{\text{box}}^{\text{O2O}} + w_{\text{cls}}(e) \cdot \mathcal{L}_{\text{cls}}^{\text{O2O}} + w_{\text{dfl}} \cdot \mathcal{L}_{\text{dfl}}^{\text{O2O}}\Big]
+\end{aligned}
 }
 \label{eq:full_loss}
 \end{equation}
