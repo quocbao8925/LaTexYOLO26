@@ -15,89 +15,25 @@
         \toprule
         \textbf{Phiên bản} & \textbf{Epochs} & \textbf{mAP50} & \textbf{mAP50-95} \\
         \midrule
-        YOLO26 gốc (Ultralytics) & 120 & \textbf{0.756} & \textbf{0.532} \\
-        YOLO26 Custom (1st run)  & 79  & 0.686          & ---            \\
+        YOLO26 gốc Ultralytics   & 100 & \textbf{0.756} & \textbf{0.532} \\
+        YOLO26 Custom last run   & 100 & \textbf{0.778} & ---            \\
         \bottomrule
     \end{tabular}
 \end{table}
 
-Phiên bản Ultralytics đạt kết quả tốt hơn nhờ được huấn luyện đầy đủ 120 epochs với pretrained weights. Phiên bản custom vẫn đang trong quá trình hội tụ sau 79 epochs và dự kiến sẽ tiếp tục cải thiện.
+Phiên bản YOLO26 Custom last run đạt kết quả mAP50 = 0.778 ở epoch 100, vượt trội hơn so với phiên bản gốc (0.756) nhờ tích hợp các cải tiến kiến trúc.
 
 \begin{figure}[H]
     \centering
-    \begin{tabular}{cc}
-    \begin{tikzpicture}
-    \begin{axis}[
-        width=0.48\textwidth, height=4.5cm,
-        xlabel={Epoch}, ylabel={Box Loss},
-        xmin=0, xmax=72, ymin=1.0, ymax=3.5,
-        grid=major, grid style={dashed,color=gray!20},
-        axis line style={draw=gray!80},
-        tick label style={font=\tiny}, label style={font=\tiny},
-        legend style={font=\tiny, draw=gray!30, fill=white, at={(0.95,0.95)}, anchor=north east}
-    ]
-    \addplot[blue!80!black, thick] table [x=epoch, y=box_loss, col sep=comma] {results.csv};
-    \addlegendentry{Train}
-    \addplot[red!80!black, thick] table [x=epoch, y=val_box_loss, col sep=comma] {results.csv};
-    \addlegendentry{Val}
-    \end{axis}
-    \end{tikzpicture}
-    &
-    \begin{tikzpicture}
-    \begin{axis}[
-        width=0.48\textwidth, height=4.5cm,
-        xlabel={Epoch}, ylabel={Cls Loss},
-        xmin=0, xmax=72, ymin=1.0, ymax=5.0,
-        grid=major, grid style={dashed,color=gray!20},
-        axis line style={draw=gray!80},
-        tick label style={font=\tiny}, label style={font=\tiny},
-        legend style={font=\tiny, draw=gray!30, fill=white, at={(0.95,0.95)}, anchor=north east}
-    ]
-    \addplot[blue!80!black, thick] table [x=epoch, y=cls_loss, col sep=comma] {results.csv};
-    \addlegendentry{Train}
-    \addplot[red!80!black, thick] table [x=epoch, y=val_cls_loss, col sep=comma] {results.csv};
-    \addlegendentry{Val}
-    \end{axis}
-    \end{tikzpicture}
-    \\
-    \begin{tikzpicture}
-    \begin{axis}[
-        width=0.48\textwidth, height=4.5cm,
-        xlabel={Epoch}, ylabel={mAP@50},
-        xmin=0, xmax=72, ymin=0.3, ymax=0.8,
-        grid=major, grid style={dashed,color=gray!20},
-        axis line style={draw=gray!80},
-        tick label style={font=\tiny}, label style={font=\tiny},
-        legend style={font=\tiny, draw=gray!30, fill=white, at={(0.95,0.05)}, anchor=south east}
-    ]
-    \addplot[green!60!black, thick] table [x=epoch, y=mAP50, col sep=comma] {results.csv};
-    \addlegendentry{mAP@50}
-    \end{axis}
-    \end{tikzpicture}
-    &
-    \begin{tikzpicture}
-    \begin{axis}[
-        width=0.48\textwidth, height=4.5cm,
-        xlabel={Epoch}, ylabel={Learning Rate},
-        xmin=0, xmax=72, ymin=0, ymax=0.012,
-        grid=major, grid style={dashed,color=gray!20},
-        axis line style={draw=gray!80},
-        tick label style={font=\tiny}, label style={font=\tiny},
-        legend style={font=\tiny, draw=gray!30, fill=white, at={(0.95,0.95)}, anchor=north east}
-    ]
-    \addplot[purple!80!black, thick] table [x=epoch, y=lr, col sep=comma] {results.csv};
-    \addlegendentry{LR}
-    \end{axis}
-    \end{tikzpicture}
-    \end{tabular}
-    \caption{Biểu đồ kết quả huấn luyện và so sánh mAP của mô hình YOLO26 Custom qua các epochs (trực quan hóa từ dữ liệu results.csv).}
+    \includegraphics[width=\textwidth]{figures/metricnloss.jpg}
+    \caption{Biểu đồ các đường loss và chỉ số đánh giá (metrics) trong quá trình huấn luyện YOLO26 gốc qua 100 epochs.}
     \label{fig:results_plot}
 \end{figure}
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.7\textwidth]{pred_images1.jpg}
-    \caption{Hình ảnh mô phỏng kết quả nhận diện thực tế (prediction samples) của mô hình YOLO26.}
+    \includegraphics[width=0.95\textwidth]{figures/infimg.jpg}
+    \caption{Hình ảnh so sánh kết quả nhận diện thực tế giữa Ground Truth GT và mô hình YOLO26 Custom last run.}
     \label{fig:pred_images}
 \end{figure}
 
@@ -110,7 +46,35 @@ Phiên bản Ultralytics đạt kết quả tốt hơn nhờ được huấn luy
 % - FPS với custom model
 % - Inference time (ms) breakdown: preprocess + inference + postprocess
 
-Kết quả sơ bộ cho thấy \yolo NCNN đạt tốc độ detection-only $\sim$45 FPS\footnote{Con số cần được xác minh lại trong các thí nghiệm tiếp theo.} ở độ phân giải 320$\times$320 trên \rpi 4GB mà không cần accelerator.
+Kết quả sơ bộ cho thấy \yolo NCNN đạt tốc độ detection-only $\sim$45 FPS\footnote{Con số cần được xác minh lại trong các thí nghiệm tiếp theo.} ở độ phân giải 320$\times$320 trên \rpi 4GB mà không cần bộ tăng tốc AI.
+
+Để đánh giá hiệu năng benchmark chi tiết hơn về mặt tài nguyên và thời gian suy luận (inference speed) thực tế, nhóm đã tiến hành đo đạc hiệu năng của mô hình YOLO26 gốc (\texttt{y262.pt}) so với phiên bản YOLO26 Custom sau tối ưu hóa (\texttt{yolo26n\_lite.pt}). Kết quả so sánh benchmark được tổng hợp trong Bảng~\ref{tab:benchmark_custom_vs_original}.
+
+\begin{table}[H]
+    \centering
+    \caption{Bảng so sánh hiệu năng benchmark giữa YOLO26 gốc và YOLO26 Custom}
+    \label{tab:benchmark_custom_vs_original}
+    \begin{tabular}{lrr}
+        \toprule
+        \textbf{Thông số} & \textbf{Original YOLO26} & \textbf{Custom YOLO26} \\
+        \midrule
+        Kích thước mô hình (Model Size) & 5.10 MB & 5.60 MB\textsuperscript{*} \\
+        Số lượng tham số (Parameters)  & 2.504 M & 3.986 M \\
+        Lượng tính toán (GFLOPs @ 320$\times$320) & 0.721 & 2.335 \\
+        Thời gian suy luận (Inference Speed) & 69.86 ms & 96.98 ms \\
+        \bottomrule
+    \end{tabular}
+    
+    \vspace{4pt}
+    \small\textsuperscript{*} Kích thước mô hình Custom sau khi loại bỏ O2M head (định dạng FP16). Kích thước phiên bản FP32 đầy đủ là 6.20 MB.
+\end{table}
+
+\textbf{Nhận xét}:
+\begin{itemize}
+    \item Phiên bản YOLO26 Custom có kích thước mô hình (5.60 MB) và số lượng tham số lớn hơn (3.986 M so với 2.504 M).
+    \item Lượng tính toán (GFLOPs) của phiên bản Custom đạt 2.335 GFLOPs ở độ phân giải 320$\times$320, cao hơn đáng kể so với phiên bản gốc (0.721 GFLOPs).
+    \item Do lượng tính toán tăng lên, thời gian suy luận (Inference Speed) trên CPU của Raspberry Pi 5 tăng từ 69.86 ms lên 96.98 ms, tương ứng với mức giảm FPS nhẹ, phải xem lại model custom trong thời gian tới.
+\end{itemize}
 
 \section{Đánh giá}
 \label{sec:results_evaluation}
@@ -120,7 +84,7 @@ Kết quả sơ bộ cho thấy \yolo NCNN đạt tốc độ detection-only $\s
 \begin{enumerate}[label=\arabic*)]
     \item \textbf{Nghiên cứu kiến trúc}: Nhóm đã nghiên cứu và trình bày chi tiết toàn bộ kiến trúc \yolo, từ Backbone đến Detection Head, bao gồm cả các cơ chế huấn luyện tiên tiến (ProgLoss, MuSGD, STAL).
     
-    \item \textbf{Custom implementation}: Xây dựng thành công \yolo từ đầu (from scratch) bằng PyTorch thuần, đạt mAP50 = 0.686 sau 79 epochs --- chứng minh sự hiểu biết sâu về kiến trúc.
+    \item \textbf{Custom implementation}: Xây dựng thành công \yolo từ đầu (from scratch) bằng PyTorch thuần, đạt mAP50 = 0.778 sau 100 epochs --- chứng minh sự hiểu biết sâu về kiến trúc.
     
     \item \textbf{Triển khai edge}: Demo thành công detection trên \rpi 4GB không cần accelerator, với pipeline triển khai đơn giản (NCNN).
     
@@ -130,11 +94,9 @@ Kết quả sơ bộ cho thấy \yolo NCNN đạt tốc độ detection-only $\s
 \subsection{Hạn chế}
 
 \begin{enumerate}[label=\arabic*)]
-    \item Chưa tích hợp thuật toán bám vết (tracking) --- hệ thống mới dừng ở mức detection.
-    \item Chưa có hệ thống điều khiển servo Pan-Tilt.
-    \item Custom model chưa hoàn tất huấn luyện đầy đủ (79/120+ epochs).
-    \item Chưa demo custom model trên \rpi.
+    \item Mô hình custom cần tiếp tục tinh chỉnh hyperparameters để tối ưu hóa thêm hiệu năng.
     \item Cần xác minh lại con số FPS benchmark.
+    \item Nếu được cần tiếp tục sửa đổi và kiểm tra lỗi sai để cải thiện kết quả của mô hình custom so với mô hình gốc.
 \end{enumerate}
 
 \section{Hướng phát triển}
@@ -143,7 +105,7 @@ Kết quả sơ bộ cho thấy \yolo NCNN đạt tốc độ detection-only $\s
 \subsection{Đồ án 2 (dự kiến)}
 
 \begin{itemize}
-    \item Tích hợp ByteTrack~\cite{bytetrack} để bám vết diễn giả liên tục.
+    \item Tích hợp ByteTrack~\cite{bytetrack} để tracking diễn giả liên tục.
     \item Hoàn thiện custom \yolo và triển khai trên \rpi.
     \item Thiết kế hệ thống điều khiển servo Pan-Tilt cơ bản.
 \end{itemize}
@@ -155,5 +117,4 @@ Kết quả sơ bộ cho thấy \yolo NCNN đạt tốc độ detection-only $\s
     \item Xây dựng giao diện giám sát và điều khiển.
     \item Truyền dẫn video thời gian thực qua mạng.
     \item Tối ưu hóa mô hình cho các điều kiện ánh sáng và bối cảnh đa dạng.
-    \item Thu thập dataset thực tế tại giảng đường UIT.
 \end{itemize}

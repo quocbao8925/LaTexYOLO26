@@ -154,6 +154,7 @@ Tài liệu tham khảo                                                         
 2.3   Sự phụ thuộc của F1-Score vào Precision và Recall . . . . . . . . . . . . . . .        6
 2.4   Sự biến đổi phân phối dữ liệu qua các bước của Batch Normalization . . . . . .         9
 2.5   So sánh hàm kích hoạt SiLU với ReLU và Sigmoid . . . . . . . . . . . . . . .           9
+2.6   Bo mạch nhúng Raspberry Pi 5 được sử dụng để triển khai thực nghiệm . . . .           11
 
 3.1   Phân phối số lượng đối tượng person trên mỗi ảnh trong tập COCO Person 320            14
 3.2   (Trái) Heatmap tọa độ tâm bounding box. (Phải) Phân phối tỷ lệ cao/rộng của
@@ -187,7 +188,6 @@ Tài liệu tham khảo                                                         
       các độ phân giải đầu vào 320, 480, 640. . . . . . . . . . . . . . . . . . . . . .     40
 6.2   Demo nhận diện người trên Raspberry Pi 5 với camera 1280×720, input resolu-
       tion 640, đạt 18.9 FPS. Detection: id:1 person 0.87. . . . . . . . . . . . . . . .    41
-
 
 
                                             iv
@@ -662,17 +662,23 @@ hơn, và hoạt động độc lập khi mất kết nối mạng.
 
     • Hệ điều hành: Raspberry Pi OS (Linux)
 
-   So với các giải pháp AI edge khác (NVIDIA Jetson, Google Coral), Raspberry Pi 5 có ưu
-điểm về chi phí thấp, cộng đồng hỗ trợ lớn, nhưng bị hạn chế về hiệu năng GPU/NPU. Đồ án này
-chứng minh rằng với kiến trúc mô hình phù hợp (YOLO26) và runtime tối ưu (NCNN), CPU
-thuần của Raspberry Pi 5 vẫn đủ khả năng chạy object detection thời gian thực.
+   Chi tiết hình dáng và cấu tạo phần cứng của bo mạch được minh họa trong Hình 2.6.
 
 
 
 
                                                   10
-CHƯƠNG 2. CƠ SỞ LÝ THUYẾT                          Đồ án 1 — Tối ưu YOLO26 cho thiết bị biên
+CHƯƠNG 2. CƠ SỞ LÝ THUYẾT                             Đồ án 1 — Tối ưu YOLO26 cho thiết bị biên
 
+
+
+
+         Hình 2.6: Bo mạch nhúng Raspberry Pi 5 được sử dụng để triển khai thực nghiệm
+
+   So với các giải pháp AI edge khác (NVIDIA Jetson, Google Coral), Raspberry Pi 5 có ưu
+điểm về chi phí thấp, cộng đồng hỗ trợ lớn, nhưng bị hạn chế về hiệu năng GPU/NPU. Đồ án này
+chứng minh rằng với kiến trúc mô hình phù hợp (YOLO26) và runtime tối ưu (NCNN), CPU
+thuần của Raspberry Pi 5 vẫn đủ khả năng chạy object detection thời gian thực.
 
 
 2.5    NCNN Framework
@@ -696,7 +702,7 @@ lượng tử hóa INT8 phức tạp.
 
 
 
-                                            11
+                                              11
                                      CHƯƠNG 3
 
                             Xây dựng bộ dữ liệu
