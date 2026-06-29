@@ -10,7 +10,7 @@
 Bài toán nhận diện diễn giả trong môi trường giảng đường và hội trường đặt ra các yêu cầu cụ thể cho bộ dữ liệu:
 
 \begin{enumerate}[label=\arabic*)]
-    \item \textbf{Lớp đối tượng}: Chỉ cần một lớp duy nhất --- \texttt{person} (người). Trong phạm vi Đồ án 1, hệ thống chưa cần phân biệt ``diễn giả'' với ``khán giả''.
+    \item \textbf{Lớp đối tượng}: Chỉ cần một lớp duy nhất --- \texttt{person} (người). Trong phạm vi Đồ án 1, hệ thống chưa cần phân biệt ``diễn giả'' với ``khán giả''. Toàn bộ đồ án tập trung vào việc phát hiện và bám vết (detect và tracking) trong một khung hình hẹp chỉ bao gồm diễn giả chính ngay từ đầu. Trong trường hợp có người khác đi ngang qua, hệ thống vẫn duy trì việc bám vết và giữ nguyên ID của diễn giả đó mà không bị ảnh hưởng bởi hiện tượng che khuất (occlusion) hay chuyển đổi mục tiêu, do đó không cần thiết phải phân loại nhiều lớp đối tượng phức tạp.
     
     \item \textbf{Đa dạng tư thế}: Diễn giả có thể đứng, ngồi, di chuyển, quay lưng, hoặc bị che khuất một phần.
     
@@ -24,32 +24,30 @@ Bài toán nhận diện diễn giả trong môi trường giảng đường và
 \section{Khảo sát và lựa chọn dataset}
 \label{sec:ds_survey}
 
-Nhóm đã khảo sát ba nguồn dữ liệu tiềm năng:
+Nhóm đã khảo sát các nguồn dữ liệu tiềm năng phục vụ cho bài toán:
 
 \subsection{COCO 2017 (Common Objects in Context)}
 
-COCO~\cite{coco} là bộ dữ liệu chuẩn (benchmark dataset) phổ biến nhất trong lĩnh vực Object Detection, chứa hơn 200.000 ảnh với 80 lớp đối tượng. Lớp \texttt{person} (ID: 0) chiếm số lượng lớn nhất trong COCO.
+COCO~\cite{coco} là bộ dữ liệu chuẩn (benchmark dataset) phổ biến nhất trong lĩnh vực Object Detection, chứa hơn 200.000 ảnh với 80 lớp đối tượng. Lớp \texttt{person} (ID: 0) chiếm số lượng lớn nhất trong COCO và được chọn làm nguồn dữ liệu chính cho bài toán.
 
-\textbf{Ưu điểm}: Đa dạng bối cảnh, đa dạng tư thế, annotation chất lượng cao, được cộng đồng kiểm chứng rộng rãi.\\
-\textbf{Nhược điểm}: Chứa nhiều lớp không cần thiết, nhiều ảnh có quá nhiều người (crowd scene), cần lọc và tiền xử lý.
+\begin{itemize}
+    \item \textbf{Ưu điểm}: Đa dạng bối cảnh, tư thế phong phú, chất lượng nhãn (annotation) cao và được cộng đồng kiểm chứng rộng rãi.
+    \item \textbf{Nhược điểm}: Chứa nhiều lớp không cần thiết, nhiều ảnh có quá đông người (crowd scene), đòi hỏi phải lọc và tiền xử lý.
+\end{itemize}
 
-\subsection{SCB-05 (Smart Classroom Behavior)}
+\subsection{Các bộ dữ liệu tiềm năng khác}
 
-Dataset chuyên biệt cho bài toán hành vi trong lớp học, chứa các lớp như Teacher, Student.
+Ngoài COCO 2017, nhóm cũng tiến hành khảo sát và đánh giá một số nguồn dữ liệu tiềm năng khác để phục vụ cho các thử nghiệm mở rộng:
 
-\textbf{Ưu điểm}: Bối cảnh phù hợp (lớp học), có nhãn phân biệt giáo viên/học sinh.\\
-\textbf{Nhược điểm}: Quy mô nhỏ hơn COCO, đa dạng tư thế hạn chế, annotation không đồng đều.
-
-\subsection{TED Talk (tự tạo)}
-
-Trích xuất khung hình từ video TED Talk và tự gán nhãn.
-
-\textbf{Ưu điểm}: Bối cảnh sát với thực tế (diễn giả thuyết trình).\\
-\textbf{Nhược điểm}: Tốn công sức gán nhãn thủ công, số lượng hạn chế, thiếu đa dạng.
+\begin{itemize}
+    \item \textbf{TED Talk (tự tạo)}: Dữ liệu trích xuất trực tiếp từ các video thuyết trình TED Talk và tiến hành tự gán nhãn. Bộ dữ liệu này có bối cảnh sát thực tế nhất với bài toán bám vết diễn giả thuyết trình, tuy nhiên quy mô còn hạn chế do tốn nhiều công sức gán nhãn thủ công.
+    \item \textbf{MTMMC (Multi-Target Multi-Camera)}: Bộ dữ liệu chuẩn hỗ trợ bài toán bám vết đa đối tượng qua nhiều camera. Đây là nguồn dữ liệu uy tín, cung cấp bối cảnh giám sát người di chuyển liên tục với độ phân giải cao, hỗ trợ tốt cho việc tối ưu thuật toán tracking.
+    \item \textbf{SCB-05 (Smart Classroom Behavior)}: Bộ dữ liệu lớp học thông minh chứa các nhãn hành vi của giáo viên và học sinh. Mặc dù bối cảnh lớp học phù hợp, nhưng SCB-05 không thực sự uy tín bằng TED Talk tự tạo hay MTMMC, đồng thời quy mô nhỏ, đa dạng tư thế hạn chế và chất lượng nhãn không đồng đều.
+\end{itemize}
 
 \subsection{Kết luận lựa chọn}
 
-Sau khi đánh giá, nhóm quyết định sử dụng \textbf{COCO 2017} làm nguồn dữ liệu chính, tiến hành lọc và tiền xử lý để tạo bộ dữ liệu \textbf{COCO Person 320} phù hợp với bài toán. SCB-05 được sử dụng như bộ dữ liệu thử nghiệm bổ sung.
+Sau khi đánh giá kỹ lưỡng, nhóm quyết định sử dụng \textbf{COCO 2017} làm nguồn dữ liệu chính để xây dựng bộ dữ liệu \textbf{COCO Person 320}. Các bộ dữ liệu tiềm năng như TED Talk tự tạo và MTMMC sẽ được dùng để phục vụ quá trình kiểm thử và đánh giá hiệu năng bám vết của hệ thống trong thực tế.
 
 \section{Dataset COCO Person 320}
 \label{sec:ds_coco_person}
@@ -94,16 +92,11 @@ Kết quả sau khi tiền xử lý được tóm tắt trong \tabref{tab:datase
 
 \subsection{Phân tích dữ liệu khám phá (EDA)}
 
-% TODO: Chèn hình EDA — 4 biểu đồ sau đây lấy từ ảnh đã có
-% Hình 1: Phân phối số người/ảnh (histogram)
-% Hình 2: Heatmap centroid (tọa độ tâm bbox)
-% Hình 3: Phân phối diện tích bbox
-% Hình 4: Phân phối tỷ lệ H/W
+Thống kê chi tiết và phân tích dữ liệu khám phá (EDA) trên tập dữ liệu COCO Person 320 được thể hiện qua các biểu đồ phân phối dưới đây.
 
 \begin{figure}[H]
     \centering
-    % \includegraphics[width=0.8\textwidth]{figures/eda_person_count.png}
-    \fbox{\parbox{0.8\textwidth}{\centering\vspace{2cm}\textbf{[CHÈN ẢNH]} Phân phối số người trên mỗi ảnh\vspace{2cm}}}
+    \includegraphics[width=0.85\textwidth]{figures/Object count distribution.png}
     \caption{Phân phối số lượng đối tượng \texttt{person} trên mỗi ảnh trong tập COCO Person 320}
     \label{fig:eda_person_count}
 \end{figure}
@@ -111,24 +104,39 @@ Kết quả sau khi tiền xử lý được tóm tắt trong \tabref{tab:datase
 Kết quả phân tích EDA cho thấy:
 
 \begin{itemize}
-    \item \textbf{Số lượng người/ảnh}: Phần lớn ảnh chứa 1--2 người (24.251 ảnh chứa 1 người, 10.433 ảnh chứa 2 người), phù hợp với bối cảnh diễn giả.
+    \item \textbf{Số lượng người/ảnh}: Phần lớn ảnh chứa 1--2 người (khoảng 24.251 ảnh chứa 1 người, 10.433 ảnh chứa 2 người), rất phù hợp với bối cảnh giảng đường và hội trường khi chỉ tập trung bám vết một vài diễn giả chính.
     
-    \item \textbf{Tọa độ tâm}: Heatmap centroid cho thấy các bounding box tập trung ở vùng giữa ảnh ($x \approx 0.5$, $y \approx 0.5$), phản ánh xu hướng đặt đối tượng ở trung tâm khung hình.
+    \item \textbf{Tọa độ tâm}: Heatmap centroid (\figref{fig:eda_heatmap}) cho thấy các bounding box tập trung cao độ ở vùng trung tâm ảnh ($x \approx 0.5$, $y \approx 0.5$), phản ánh xu hướng chụp ảnh tập trung vào đối tượng chính.
     
-    \item \textbf{Diện tích bbox}: Phân bố long-tail, đa phần bounding box có kích thước nhỏ đến trung bình.
+    \item \textbf{Diện tích bbox và kích thước ảnh}: Biểu đồ thống kê tổng quan (\figref{fig:eda_general_stats}) cho thấy phân bố diện tích bounding box dạng long-tail (phần lớn là đối tượng nhỏ đến trung bình) và phân bố tọa độ phân tán rộng rãi.
     
-    \item \textbf{Tỷ lệ H/W}: Peak ở khoảng $\sim 2.0$ (người đứng thường cao gấp đôi chiều rộng), phù hợp với đặc điểm hình học của cơ thể người.
+    \item \textbf{Tỷ lệ H/W}: Biểu đồ tỷ lệ H/W (\figref{fig:eda_aspect_ratio}) đạt đỉnh ở khoảng $\sim 2.0$ (chiều cao gấp đôi chiều rộng), đặc trưng cho hình học của cơ thể người ở tư thế đứng hoặc di chuyển thẳng đứng.
 \end{itemize}
 
 \begin{figure}[H]
     \centering
-    % \includegraphics[width=0.45\textwidth]{figures/eda_heatmap.png}
-    % \includegraphics[width=0.45\textwidth]{figures/eda_aspect_ratio.png}
-    \fbox{\parbox{0.45\textwidth}{\centering\vspace{2cm}\textbf{[CHÈN ẢNH]}\\ Heatmap centroid\vspace{2cm}}}
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/Heatmap Position.png}
+        \caption{Heatmap tọa độ tâm}
+        \label{fig:eda_heatmap}
+    \end{subfigure}
     \hfill
-    \fbox{\parbox{0.45\textwidth}{\centering\vspace{2cm}\textbf{[CHÈN ẢNH]}\\ Tỷ lệ H/W\vspace{2cm}}}
-    \caption{(Trái) Heatmap tọa độ tâm bounding box. (Phải) Phân phối tỷ lệ cao/rộng của bounding box.}
-    \label{fig:eda_heatmap_aspect}
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/radio_distribution_HW.png}
+        \caption{Phân phối tỷ lệ H/W}
+        \label{fig:eda_aspect_ratio}
+    \end{subfigure}
+    \caption{Phân tích đặc điểm hình học của bounding box trên tập dữ liệu}
+    \label{fig:eda_geometry}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{figures/General stats.png}
+    \caption{Thống kê tổng quan về phân bố ảnh, tọa độ phân tán và diện tích bounding box}
+    \label{fig:eda_general_stats}
 \end{figure}
 
 \section{Định dạng YOLO}
