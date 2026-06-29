@@ -1,0 +1,414 @@
+% $ biblatex auxiliary file $
+% $ biblatex bbl format version 3.3 $
+% Do not modify the above lines!
+%
+% This is an auxiliary file used by the 'biblatex' package.
+% This file may safely be deleted. It will be recreated by
+% biber as required.
+%
+\begingroup
+\makeatletter
+\@ifundefined{ver@biblatex.sty}
+  {\@latex@error
+     {Missing 'biblatex' package}
+     {The bibliography requires the 'biblatex' package.}
+      \aftergroup\endinput}
+  {}
+\endgroup
+
+
+\refsection{0}
+  \datalist[entry]{none/global//global/global/global}
+    \entry{kltn_tiennhiem}{thesis}{}{}
+      \name{author}{2}{}{%
+        {{hash=35b8f1b13ca51e0beda2ef891da11ad5}{%
+           family={Kiệt},
+           familyi={K\bibinitperiod},
+           given={Bành\bibnamedelima Trí},
+           giveni={B\bibinitperiod\bibinitdelim T\bibinitperiod}}}%
+        {{hash=9e7b37224cffd8eff568a86b4f344863}{%
+           family={Bảo},
+           familyi={B\bibinitperiod},
+           given={Mai\bibnamedelimb Hoàng\bibnamedelima Gia},
+           giveni={M\bibinitperiod\bibinitdelim H\bibinitperiod\bibinitdelim G\bibinitperiod}}}%
+      }
+      \list{institution}{1}{%
+        {Trường Đại học Công nghệ Thông tin, ĐHQG TP.HCM}%
+      }
+      \strng{namehash}{5a5442bc786cc04edb65f312b03644c0}
+      \strng{fullhash}{5a5442bc786cc04edb65f312b03644c0}
+      \strng{fullhashraw}{5a5442bc786cc04edb65f312b03644c0}
+      \strng{bibnamehash}{5a5442bc786cc04edb65f312b03644c0}
+      \strng{authorbibnamehash}{5a5442bc786cc04edb65f312b03644c0}
+      \strng{authornamehash}{5a5442bc786cc04edb65f312b03644c0}
+      \strng{authorfullhash}{5a5442bc786cc04edb65f312b03644c0}
+      \strng{authorfullhashraw}{5a5442bc786cc04edb65f312b03644c0}
+      \field{sortinit}{2}
+      \field{sortinithash}{8b555b3791beccb63322c22f3320aa9a}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{note}{GVHD: ThS. Trần Hoàng Lộc}
+      \field{title}{Hiện thực thiết bị Camera tự động theo dõi diễn giả trong buổi hội thảo, thuyết trình}
+      \field{type}{Khóa luận tốt nghiệp}
+      \field{year}{2025}
+    \endentry
+    \entry{yolo26}{article}{}{}
+      \name{author}{2}{}{%
+        {{hash=c5c5e5cd7f4f477f617289b32613deb0}{%
+           family={Jocher},
+           familyi={J\bibinitperiod},
+           given={Glenn},
+           giveni={G\bibinitperiod}}}%
+        {{hash=b8739ebbf3f871d471b6720a02ed541f}{%
+           family={Qiu},
+           familyi={Q\bibinitperiod},
+           given={Jing},
+           giveni={J\bibinitperiod}}}%
+      }
+      \strng{namehash}{7ffa0dad9709ac21fa40cfa507db39d1}
+      \strng{fullhash}{7ffa0dad9709ac21fa40cfa507db39d1}
+      \strng{fullhashraw}{7ffa0dad9709ac21fa40cfa507db39d1}
+      \strng{bibnamehash}{7ffa0dad9709ac21fa40cfa507db39d1}
+      \strng{authorbibnamehash}{7ffa0dad9709ac21fa40cfa507db39d1}
+      \strng{authornamehash}{7ffa0dad9709ac21fa40cfa507db39d1}
+      \strng{authorfullhash}{7ffa0dad9709ac21fa40cfa507db39d1}
+      \strng{authorfullhashraw}{7ffa0dad9709ac21fa40cfa507db39d1}
+      \field{extraname}{1}
+      \field{sortinit}{3}
+      \field{sortinithash}{ad6fe7482ffbd7b9f99c9e8b5dccd3d7}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{arXiv preprint arXiv:2502.15737}
+      \field{title}{YOLO26: Redesigning YOLO for End-to-End and Efficient Detection}
+      \field{year}{2025}
+      \verb{urlraw}
+      \verb https://arxiv.org/abs/2502.15737
+      \endverb
+      \verb{url}
+      \verb https://arxiv.org/abs/2502.15737
+      \endverb
+    \endentry
+    \entry{bytetrack}{article}{}{}
+      \name{author}{9}{}{%
+        {{hash=fe8b7f3911294516753b2d51a6140997}{%
+           family={Zhang},
+           familyi={Z\bibinitperiod},
+           given={Yifu},
+           giveni={Y\bibinitperiod}}}%
+        {{hash=d52526d5deefaf143df9015f52a0d3cb}{%
+           family={Sun},
+           familyi={S\bibinitperiod},
+           given={Peize},
+           giveni={P\bibinitperiod}}}%
+        {{hash=aefed70e3b6aeee186d622fd3721feb8}{%
+           family={Jiang},
+           familyi={J\bibinitperiod},
+           given={Yi},
+           giveni={Y\bibinitperiod}}}%
+        {{hash=64c26663564ad20c85dd9b1f421ca849}{%
+           family={Yu},
+           familyi={Y\bibinitperiod},
+           given={Dongdong},
+           giveni={D\bibinitperiod}}}%
+        {{hash=34da69027b467871688c97975837692a}{%
+           family={Weng},
+           familyi={W\bibinitperiod},
+           given={Fucheng},
+           giveni={F\bibinitperiod}}}%
+        {{hash=88f645de868bcc47896cdd2386e82512}{%
+           family={Yuan},
+           familyi={Y\bibinitperiod},
+           given={Zehuan},
+           giveni={Z\bibinitperiod}}}%
+        {{hash=e85079235b2a8c88ee9360e55b37523a}{%
+           family={Luo},
+           familyi={L\bibinitperiod},
+           given={Ping},
+           giveni={P\bibinitperiod}}}%
+        {{hash=d2354226a305a694e082d0c47c299a00}{%
+           family={Liu},
+           familyi={L\bibinitperiod},
+           given={Wenyu},
+           giveni={W\bibinitperiod}}}%
+        {{hash=1bd616b774bd66d7d77e025ac08c962d}{%
+           family={Wang},
+           familyi={W\bibinitperiod},
+           given={Xinggang},
+           giveni={X\bibinitperiod}}}%
+      }
+      \strng{namehash}{8670678d0226ac56309c13a114bfaa24}
+      \strng{fullhash}{a54e26a59836c8695ca5ddf0e9f1f17d}
+      \strng{fullhashraw}{a54e26a59836c8695ca5ddf0e9f1f17d}
+      \strng{bibnamehash}{8670678d0226ac56309c13a114bfaa24}
+      \strng{authorbibnamehash}{8670678d0226ac56309c13a114bfaa24}
+      \strng{authornamehash}{8670678d0226ac56309c13a114bfaa24}
+      \strng{authorfullhash}{a54e26a59836c8695ca5ddf0e9f1f17d}
+      \strng{authorfullhashraw}{a54e26a59836c8695ca5ddf0e9f1f17d}
+      \field{sortinit}{4}
+      \field{sortinithash}{9381316451d1b9788675a07e972a12a7}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{European Conference on Computer Vision (ECCV)}
+      \field{title}{ByteTrack: Multi-Object Tracking by Associating Every Detection Box}
+      \field{year}{2022}
+    \endentry
+    \entry{ultralytics}{misc}{}{}
+      \name{author}{1}{}{%
+        {{hash=c5c5e5cd7f4f477f617289b32613deb0}{%
+           family={Jocher},
+           familyi={J\bibinitperiod},
+           given={Glenn},
+           giveni={G\bibinitperiod}}}%
+      }
+      \strng{namehash}{c5c5e5cd7f4f477f617289b32613deb0}
+      \strng{fullhash}{c5c5e5cd7f4f477f617289b32613deb0}
+      \strng{fullhashraw}{c5c5e5cd7f4f477f617289b32613deb0}
+      \strng{bibnamehash}{c5c5e5cd7f4f477f617289b32613deb0}
+      \strng{authorbibnamehash}{c5c5e5cd7f4f477f617289b32613deb0}
+      \strng{authornamehash}{c5c5e5cd7f4f477f617289b32613deb0}
+      \strng{authorfullhash}{c5c5e5cd7f4f477f617289b32613deb0}
+      \strng{authorfullhashraw}{c5c5e5cd7f4f477f617289b32613deb0}
+      \field{sortinit}{6}
+      \field{sortinithash}{b33bc299efb3c36abec520a4c896a66d}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{howpublished}{\url{https://github.com/ultralytics/ultralytics}}
+      \field{title}{Ultralytics YOLO}
+      \field{year}{2023}
+    \endentry
+    \entry{yolo11}{article}{}{}
+      \name{author}{2}{}{%
+        {{hash=c5c5e5cd7f4f477f617289b32613deb0}{%
+           family={Jocher},
+           familyi={J\bibinitperiod},
+           given={Glenn},
+           giveni={G\bibinitperiod}}}%
+        {{hash=b8739ebbf3f871d471b6720a02ed541f}{%
+           family={Qiu},
+           familyi={Q\bibinitperiod},
+           given={Jing},
+           giveni={J\bibinitperiod}}}%
+      }
+      \strng{namehash}{7ffa0dad9709ac21fa40cfa507db39d1}
+      \strng{fullhash}{7ffa0dad9709ac21fa40cfa507db39d1}
+      \strng{fullhashraw}{7ffa0dad9709ac21fa40cfa507db39d1}
+      \strng{bibnamehash}{7ffa0dad9709ac21fa40cfa507db39d1}
+      \strng{authorbibnamehash}{7ffa0dad9709ac21fa40cfa507db39d1}
+      \strng{authornamehash}{7ffa0dad9709ac21fa40cfa507db39d1}
+      \strng{authorfullhash}{7ffa0dad9709ac21fa40cfa507db39d1}
+      \strng{authorfullhashraw}{7ffa0dad9709ac21fa40cfa507db39d1}
+      \field{extraname}{2}
+      \field{sortinit}{8}
+      \field{sortinithash}{a231b008ebf0ecbe0b4d96dcc159445f}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{arXiv preprint arXiv:2412.18230}
+      \field{title}{Ultralytics YOLO11}
+      \field{year}{2024}
+      \verb{urlraw}
+      \verb https://arxiv.org/abs/2412.18230
+      \endverb
+      \verb{url}
+      \verb https://arxiv.org/abs/2412.18230
+      \endverb
+    \endentry
+    \entry{ncnn}{misc}{}{}
+      \name{author}{1}{}{%
+        {{hash=08fa9615375ef26c7e910a3bb116a36d}{%
+           family={nihui},
+           familyi={n\bibinitperiod}}}%
+      }
+      \strng{namehash}{08fa9615375ef26c7e910a3bb116a36d}
+      \strng{fullhash}{08fa9615375ef26c7e910a3bb116a36d}
+      \strng{fullhashraw}{08fa9615375ef26c7e910a3bb116a36d}
+      \strng{bibnamehash}{08fa9615375ef26c7e910a3bb116a36d}
+      \strng{authorbibnamehash}{08fa9615375ef26c7e910a3bb116a36d}
+      \strng{authornamehash}{08fa9615375ef26c7e910a3bb116a36d}
+      \strng{authorfullhash}{08fa9615375ef26c7e910a3bb116a36d}
+      \strng{authorfullhashraw}{08fa9615375ef26c7e910a3bb116a36d}
+      \field{sortinit}{1}
+      \field{sortinithash}{4f6aaa89bab872aa0999fec09ff8e98a}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{howpublished}{\url{https://github.com/Tencent/ncnn}}
+      \field{note}{Tencent}
+      \field{title}{ncnn: A high-performance neural network inference framework}
+      \field{year}{2017}
+    \endentry
+    \entry{coco}{misc}{}{}
+      \true{moreauthor}
+      \true{morelabelname}
+      \name{author}{3}{}{%
+        {{hash=08f925fe4692d130a1d7cb7d94483351}{%
+           family={Lin},
+           familyi={L\bibinitperiod},
+           given={Tsung-Yi},
+           giveni={T\bibinithyphendelim Y\bibinitperiod}}}%
+        {{hash=d980bc6930f008a0fb5fa667785f2309}{%
+           family={Maire},
+           familyi={M\bibinitperiod},
+           given={Michael},
+           giveni={M\bibinitperiod}}}%
+        {{hash=044d1db5259b74e4975282f599d8e767}{%
+           family={Belongie},
+           familyi={B\bibinitperiod},
+           given={Serge},
+           giveni={S\bibinitperiod}}}%
+      }
+      \strng{namehash}{3b7e00bc88d7aca4d4d5ddb8c252e36c}
+      \strng{fullhash}{72b744e79c74738c617fd08b4f3d7e36}
+      \strng{fullhashraw}{72b744e79c74738c617fd08b4f3d7e36}
+      \strng{bibnamehash}{72b744e79c74738c617fd08b4f3d7e36}
+      \strng{authorbibnamehash}{72b744e79c74738c617fd08b4f3d7e36}
+      \strng{authornamehash}{3b7e00bc88d7aca4d4d5ddb8c252e36c}
+      \strng{authorfullhash}{72b744e79c74738c617fd08b4f3d7e36}
+      \strng{authorfullhashraw}{72b744e79c74738c617fd08b4f3d7e36}
+      \field{sortinit}{1}
+      \field{sortinithash}{4f6aaa89bab872aa0999fec09ff8e98a}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{howpublished}{\url{https://cocodataset.org}}
+      \field{title}{Microsoft COCO: Common Objects in Context}
+      \field{year}{2014}
+    \endentry
+    \entry{cspnet}{article}{}{}
+      \name{author}{6}{}{%
+        {{hash=053d491932411950eccf2bb9a1025d11}{%
+           family={Wang},
+           familyi={W\bibinitperiod},
+           given={Chien-Yao},
+           giveni={C\bibinithyphendelim Y\bibinitperiod}}}%
+        {{hash=c81478c691c1bc1cc01404c44b5bd5bf}{%
+           family={Liao},
+           familyi={L\bibinitperiod},
+           given={Hong-Yuan\bibnamedelima Mark},
+           giveni={H\bibinithyphendelim Y\bibinitperiod\bibinitdelim M\bibinitperiod}}}%
+        {{hash=0ba2923d42c5bf352ba762a2cca4ad85}{%
+           family={Wu},
+           familyi={W\bibinitperiod},
+           given={Yueh-Hua},
+           giveni={Y\bibinithyphendelim H\bibinitperiod}}}%
+        {{hash=f3e4ee5422421c0bd54125fdb693f053}{%
+           family={Chen},
+           familyi={C\bibinitperiod},
+           given={Ping-Yang},
+           giveni={P\bibinithyphendelim Y\bibinitperiod}}}%
+        {{hash=20f080fa309d919fdc153f42e5ba4ece}{%
+           family={Hsieh},
+           familyi={H\bibinitperiod},
+           given={Jun-Wei},
+           giveni={J\bibinithyphendelim W\bibinitperiod}}}%
+        {{hash=48d31f7ede2c284da665286f4df2a8aa}{%
+           family={Yeh},
+           familyi={Y\bibinitperiod},
+           given={I-Hau},
+           giveni={I\bibinithyphendelim H\bibinitperiod}}}%
+      }
+      \strng{namehash}{d0820b10ae0595f75853ddaccc5f1ccf}
+      \strng{fullhash}{b273a40169cb8ea49364e2ce115b7b8a}
+      \strng{fullhashraw}{b273a40169cb8ea49364e2ce115b7b8a}
+      \strng{bibnamehash}{b273a40169cb8ea49364e2ce115b7b8a}
+      \strng{authorbibnamehash}{b273a40169cb8ea49364e2ce115b7b8a}
+      \strng{authornamehash}{d0820b10ae0595f75853ddaccc5f1ccf}
+      \strng{authorfullhash}{b273a40169cb8ea49364e2ce115b7b8a}
+      \strng{authorfullhashraw}{b273a40169cb8ea49364e2ce115b7b8a}
+      \field{sortinit}{1}
+      \field{sortinithash}{4f6aaa89bab872aa0999fec09ff8e98a}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{IEEE Conference on Computer Vision and Pattern Recognition Workshops}
+      \field{title}{CSPNet: A New Backbone that can Enhance Learning Capability of CNN}
+      \field{year}{2020}
+    \endentry
+    \entry{dfl}{article}{}{}
+      \name{author}{8}{}{%
+        {{hash=09e1a64c667557dd7866bc4e66d193ce}{%
+           family={Li},
+           familyi={L\bibinitperiod},
+           given={Xiang},
+           giveni={X\bibinitperiod}}}%
+        {{hash=7a01b04c92b0592fe6e559a4e4678ce2}{%
+           family={Wang},
+           familyi={W\bibinitperiod},
+           given={Wenhai},
+           giveni={W\bibinitperiod}}}%
+        {{hash=cb18d9b85d997d5b643be8eb2d61ef1a}{%
+           family={Wu},
+           familyi={W\bibinitperiod},
+           given={Lijun},
+           giveni={L\bibinitperiod}}}%
+        {{hash=cae35e2754ed78d063a20159ebcf4109}{%
+           family={Chen},
+           familyi={C\bibinitperiod},
+           given={Shuo},
+           giveni={S\bibinitperiod}}}%
+        {{hash=4f0a16da447808fc8b84cec1c86d6f64}{%
+           family={Hu},
+           familyi={H\bibinitperiod},
+           given={Xiaolin},
+           giveni={X\bibinitperiod}}}%
+        {{hash=bc20e54573d2db853852f86802ab83de}{%
+           family={Li},
+           familyi={L\bibinitperiod},
+           given={Jun},
+           giveni={J\bibinitperiod}}}%
+        {{hash=4c9157227cef6d36d443ce936935d128}{%
+           family={Tang},
+           familyi={T\bibinitperiod},
+           given={Jinhui},
+           giveni={J\bibinitperiod}}}%
+        {{hash=5a1cb92dc789e714fb5aaf67809119a6}{%
+           family={Yang},
+           familyi={Y\bibinitperiod},
+           given={Jian},
+           giveni={J\bibinitperiod}}}%
+      }
+      \strng{namehash}{8bc4e01cf2882911e23bb51036f0bf9e}
+      \strng{fullhash}{e17cb91e19da05e8c17ef5c9f895d568}
+      \strng{fullhashraw}{e17cb91e19da05e8c17ef5c9f895d568}
+      \strng{bibnamehash}{8bc4e01cf2882911e23bb51036f0bf9e}
+      \strng{authorbibnamehash}{8bc4e01cf2882911e23bb51036f0bf9e}
+      \strng{authornamehash}{8bc4e01cf2882911e23bb51036f0bf9e}
+      \strng{authorfullhash}{e17cb91e19da05e8c17ef5c9f895d568}
+      \strng{authorfullhashraw}{e17cb91e19da05e8c17ef5c9f895d568}
+      \field{sortinit}{1}
+      \field{sortinithash}{4f6aaa89bab872aa0999fec09ff8e98a}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{Advances in Neural Information Processing Systems (NeurIPS)}
+      \field{title}{Generalized Focal Loss: Learning Qualified and Distributed Bounding Boxes for Dense Object Detection}
+      \field{year}{2020}
+    \endentry
+    \entry{muon}{article}{}{}
+      \name{author}{1}{}{%
+        {{hash=b7cea168d7f8507a65b724c70ec02c69}{%
+           family={Jordan},
+           familyi={J\bibinitperiod},
+           given={Keller},
+           giveni={K\bibinitperiod}}}%
+      }
+      \strng{namehash}{b7cea168d7f8507a65b724c70ec02c69}
+      \strng{fullhash}{b7cea168d7f8507a65b724c70ec02c69}
+      \strng{fullhashraw}{b7cea168d7f8507a65b724c70ec02c69}
+      \strng{bibnamehash}{b7cea168d7f8507a65b724c70ec02c69}
+      \strng{authorbibnamehash}{b7cea168d7f8507a65b724c70ec02c69}
+      \strng{authornamehash}{b7cea168d7f8507a65b724c70ec02c69}
+      \strng{authorfullhash}{b7cea168d7f8507a65b724c70ec02c69}
+      \strng{authorfullhashraw}{b7cea168d7f8507a65b724c70ec02c69}
+      \field{sortinit}{1}
+      \field{sortinithash}{4f6aaa89bab872aa0999fec09ff8e98a}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{Muon: An Optimizer for Hidden Layers in Neural Networks}
+      \field{year}{2024}
+      \verb{urlraw}
+      \verb https://kellerjordan.github.io/posts/muon/
+      \endverb
+      \verb{url}
+      \verb https://kellerjordan.github.io/posts/muon/
+      \endverb
+    \endentry
+  \enddatalist
+\endrefsection
+\endinput
+

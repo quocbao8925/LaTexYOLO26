@@ -388,8 +388,8 @@ Mỗi lần MaxPool $5 \times 5$ (với stride $s=1$, padding $p=2$) mở rộng
 
 \textbf{So với SPP}: SPP dùng 3 kernel song song ($5\times5$, $9\times9$, $13\times13$); trong khi SPPF dùng cùng một kernel $5\times5$ nối tiếp --- cho receptive field tương đương nhưng \textbf{giảm đáng kể chi phí tính toán}.
 
-\begin{notebox}[Lưu ý: YOLO26 SPPF có act=False trên cv1]
-Khác với SPPF gốc (Ultralytics) dùng \texttt{act=True} (SiLU) trên lớp tích chập cv1, YOLO26 sử dụng \texttt{act=False}. Thiết kế này làm giảm dung lượng biểu diễn phi tuyến tính ngay trước bước max-pooling, giúp ổn định thông tin biên của vật thể lớn.
+\begin{notebox}[Lưu ý: YOLO26 SPPF có act=False và shortcut=True]
+Khác với SPPF gốc, YOLO26 SPPF sử dụng \texttt{act=False} trên cv1 (không dùng SiLU), giúp giảm biểu diễn phi tuyến ngay trước bước max-pooling và ổn định thông tin biên. Ngoài ra, YOLO26 SPPF bật \texttt{shortcut=True} tạo kết nối residual ($y + x$) khi $c_1 = c_2$, giúp bảo toàn đặc trưng gốc của tầng P5 qua lớp pooling.
 \end{notebox}
 
 \subsection{Cơ chế Attention (Multi-Head Self-Attention)}
@@ -461,8 +461,8 @@ Trong các cấu hình nâng cao của YOLO26, Multi-Head Self-Attention đượ
     % Branch to Attn*V: go up to clear PE, then horizontally right, then straight up into matmul south
     \path [line] (vbranch) -- (v_up) -- (v_up -| matmul.south) -- (matmul.south);
 
-    % Attn*V and PE converge at sum_pe (entering north/south ports vertically)
-    \path [line] (matmul.east) -| (sum_pe.north);
+    % Attn*V and PE converge at sum_pe (entering west/south ports)
+    \path [line] (matmul.east) -- (sum_pe.west);
     \path [line] (pe.east)     -| (sum_pe.south);
 
     % sum_pe to sum_res to output
@@ -480,8 +480,10 @@ Trong các cấu hình nâng cao của YOLO26, Multi-Head Self-Attention đượ
 \begin{align}
     Q, K, V &= \text{split}(\text{QKV\_Conv}(x)) \\
     \text{Attn} &= \text{softmax}\left(\frac{Q \cdot K^T}{\sqrt{d_k}}\right) \\
-    \text{Output} &= V \cdot \text{Attn}^T + \text{PE}(V)
+    \text{Output} &= \text{Proj}\big(V \cdot \text{Attn}^T + \text{PE}(V)\big)
 \end{align}
+
+\noindent trong đó $\text{Proj}$ là lớp Conv $1 \times 1$ (không activation) chiếu kết quả attention trở lại không gian kênh ban đầu.
 
 \begin{itemize}
     \item \textbf{QKV Conv}: Lớp tích chập Conv $1\times1$ chiếu đồng thời vector đầu vào sang 3 không gian Query ($Q$), Key ($K$), Value ($V$). Lớp này không sử dụng activation.
@@ -674,13 +676,13 @@ Khối C2PSA áp dụng cơ chế chia nhánh (Channel-Split) của CSPNet kết
 
 \begin{figure}[H]
 \centering
-\begin{tikzpicture}[node distance=1.0cm and 1.2cm, auto]
+\begin{tikzpicture}[node distance=0.8cm and 0.4cm, auto]
     % Nodes
-    \node (p5_in) [grayblock] {Đặc trưng P5\\ Backbone};
-    \node (c3k2) [block, right=of p5_in] {C3k2 (c3k=True)\\ {[Trích xuất đặc trưng]}};
-    \node (sppf) [orangeblock, right=of c3k2] {SPPF\\ {[Mở rộng trường cảm]}};
-    \node (c2psa) [purpleblock, right=of sppf] {C2PSA\\ {[Học ngữ cảnh toàn cục]}};
-    \node (neck) [grayblock, right=of c2psa] {Neck / Head\\ {[Khối phát hiện]}};
+    \node (p5_in) [grayblock] {P5 Backbone};
+    \node (c3k2) [block, right=of p5_in] {C3k2\\ (c3k=True)};
+    \node (sppf) [orangeblock, right=of c3k2] {SPPF};
+    \node (c2psa) [purpleblock, right=of sppf] {C2PSA};
+    \node (neck) [grayblock, right=of c2psa] {Neck / Head};
 
     % Connections
     \path [line] (p5_in) -- (c3k2);
@@ -709,11 +711,11 @@ b2  & C3k2   & $32\times80^2$ & $64\times80^2$ & c3k=F, $e\!=\!0.25$ & \\
 b3  & Conv   & $64\times80^2$ & $64\times40^2$ & $k\!=\!3, s\!=\!2$ & \textbf{P3/8} \\
 b4  & C3k2   & $64\times40^2$ & $128\times40^2$ & c3k=F, $e\!=\!0.25$ & \\
 b5  & Conv   & $128\times40^2$ & $128\times20^2$ & $k\!=\!3, s\!=\!2$ & \textbf{P4/16} \\
-b6  & C3k2   & $128\times20^2$ & $128\times20^2$ & c3k=T & \\
+b6  & C3k2   & $128\times20^2$ & $128\times20^2$ & c3k=T, $e\!=\!0.5$ & \\
 b7  & Conv   & $128\times20^2$ & $256\times10^2$ & $k\!=\!3, s\!=\!2$ & \textbf{P5/32} \\
-b8  & C3k2   & $256\times10^2$ & $256\times10^2$ & c3k=T & \\
+b8  & C3k2   & $256\times10^2$ & $256\times10^2$ & c3k=T, $e\!=\!0.5$ & \\
 b9  & SPPF   & $256\times10^2$ & $256\times10^2$ & $k\!=\!5, n\!=\!3$ & \\
-b10 & C2PSA  & $256\times10^2$ & $256\times10^2$ & attention & \\
+b10 & C2PSA  & $256\times10^2$ & $256\times10^2$ & attention, $e\!=\!0.5$ & \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -752,10 +754,113 @@ Truyền detail information từ tầng nông (P3) lên tầng sâu (P5):
 
 Neck tạo ra 3 đầu ra ở 3 mức phân giải:
 \begin{itemize}
-    \item \textbf{P3\_out} (h16): $80 \times 80$, stride 8 --- phát hiện vật thể \textbf{nhỏ}.
-    \item \textbf{P4\_out} (h19): $40 \times 40$, stride 16 --- phát hiện vật thể \textbf{trung bình}.
-    \item \textbf{P5\_out} (h22): $20 \times 20$, stride 32 --- phát hiện vật thể \textbf{lớn}.
+    \item \textbf{P3\_out} (h16): $80 \times 80$ (với ảnh $640\times640$) hoặc $40 \times 40$ (với ảnh $320\times320$), stride 8 --- phát hiện vật thể \textbf{nhỏ}.
+    \item \textbf{P4\_out} (h19): $40 \times 40$ (với ảnh $640\times640$) hoặc $20 \times 20$ (với ảnh $320\times320$), stride 16 --- phát hiện vật thể \textbf{trung bình}.
+    \item \textbf{P5\_out} (h22): $20 \times 20$ (với ảnh $640\times640$) hoặc $10 \times 10$ (với ảnh $320\times320$), stride 32 --- phát hiện vật thể \textbf{lớn}.
 \end{itemize}
+
+\subsection{Đồ thị luồng dữ liệu FPN + PAN}
+
+Dưới đây là sơ đồ chi tiết luồng xử lý và cách kết hợp các tầng đặc trưng trong Neck của YOLO26:
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    node distance=0cm, auto,
+    every node/.style={font=\small},
+    block/.style={rectangle, draw=blue!70!black, fill=blue!5, thick, rounded corners, minimum width=2.4cm, minimum height=0.8cm, align=center},
+    grayblock/.style={rectangle, draw=gray!70!black, fill=gray!10, thick, rounded corners, minimum width=2.4cm, minimum height=0.8cm, align=center},
+    purpleblock/.style={rectangle, draw=purple!70!black, fill=purple!5, thick, rounded corners, minimum width=2.4cm, minimum height=0.8cm, align=center},
+    orangeblock/.style={rectangle, draw=orange!70!black, fill=orange!5, thick, rounded corners, minimum width=2.4cm, minimum height=0.8cm, align=center},
+    greenblock/.style={rectangle, draw=green!70!black, fill=green!5, thick, rounded corners, minimum width=2.4cm, minimum height=0.8cm, align=center},
+    line/.style={draw, thick, ->, >=latex}
+]
+    % --- Left Column (Backbone) ---
+    \node (b10) at (0, 0)      [grayblock] {\textbf{Backbone P5 (b10)}\\$256 \times 10^2$};
+    \node (b6)  at (0, -3.0)   [grayblock] {\textbf{Backbone P4 (b6)}\\$128 \times 20^2$};
+    \node (b4)  at (0, -7.8)   [grayblock] {\textbf{Backbone P3 (b4)}\\ $128 \times 40^2$};
+
+    % --- Middle Column (FPN) ---
+    \node (up1)  at (3.8, -1.5)  [purpleblock] {\textbf{Upsample 2x}\\$256 \times 20^2$};
+    \node (cat1) at (3.8, -3.0)  [grayblock] {\textbf{Concat}};
+    \node (h13)  at (3.8, -4.8)  [block] {\textbf{C3k2 (h13)}\\$128 \times 20^2$};
+    \node (up2)  at (3.8, -6.3)  [purpleblock] {\textbf{Upsample 2x}\\$128 \times 40^2$};
+    \node (cat2) at (3.8, -7.8)  [grayblock] {\textbf{Concat}};
+    \node (h16)  at (3.8, -9.3)  [block] {\textbf{C3k2 (h16)}\\$64 \times 40^2$};
+    \node (p3_out) at (3.8, -10.8) [greenblock] {\textbf{P3\_out (to Head)}\\$64 \times 40^2$};
+
+    % --- Right Column (PAN) ---
+    \node (h17)  at (7.6, -6.3)  [orangeblock] {\textbf{Conv (s=2)}\\$64 \times 20^2$};
+    \node (cat3) at (7.6, -4.8)  [grayblock] {\textbf{Concat}};
+    \node (h19)  at (7.6, -3.0)  [block] {\textbf{C3k2 (h19)}\\$128 \times 20^2$};
+    \node (h20)  at (7.6, -1.5)  [orangeblock] {\textbf{Conv (s=2)}\\ $128 \times 10^2$};
+    \node (cat4) at (7.6, 0)     [grayblock] {\textbf{Concat}};
+    \node (h22)  at (7.6, 1.5)   [block] {\textbf{C3k2+Attn (h22)}\\$256 \times 10^2$};
+
+    % --- Detection Outputs ---
+    \node (p4_out) at (11.2, -3.0) [greenblock] {\textbf{P4\_out (to Head)}\\$128 \times 20^2$};
+    \node (p5_out) at (11.2, 1.5)  [greenblock] {\textbf{P5\_out (to Head)}\\$256 \times 10^2$};
+
+    % --- Connections ---
+    % b10 splits to cat4 (horizontal) and up1 (orthogonal)
+    \coordinate (b10_split) at (3.8, 0);
+    \draw [thick] (b10.east) -- (b10_split);
+    \path [line] (b10_split) -- (cat4.west);
+    \path [line] (b10_split) -- (up1.north);
+
+    % FPN column
+    \path [line] (up1.south) -- (cat1.north);
+    \path [line] (b6.east) -- (cat1.west);
+    \path [line] (cat1.south) -- (h13.north);
+    \path [line] (h13.south) -- (up2.north);
+    \path [line] (up2.south) -- (cat2.north);
+    \path [line] (b4.east) -- (cat2.west);
+    \path [line] (cat2.south) -- (h16.north);
+    \path [line] (h16.south) -- (p3_out.north);
+
+    % PAN column
+    \path [line] (h16.east) -| (h17.south);
+    \path [line] (h17.north) -- (cat3.south);
+    \path [line] (h13.east) -- (cat3.west);
+    \path [line] (cat3.north) -- (h19.south);
+    \path [line] (h19.north) -- (h20.south);
+    \path [line] (h20.north) -- (cat4.south);
+    \path [line] (cat4.north) -- (h22.south);
+
+    % Outputs
+    \path [line] (h19.east) -- (p4_out.west);
+    \path [line] (h22.east) -- (p5_out.west);
+\end{tikzpicture}
+\caption{Kiến trúc tổng hợp đặc trưng Neck (FPN + PAN) của YOLO26n với kích thước đặc trưng chi tiết cho ảnh đầu vào $320\times320$.}
+\label{fig:yolo26_neck_flow}
+\end{figure}
+
+\subsection{Bảng chi tiết các lớp Neck}
+
+\begin{table}[H]
+\centering
+\small
+\caption{Chi tiết các lớp trong Neck của YOLO26n (scale nano, ảnh $320\times320$).}
+\label{tab:neck_layers}
+\begin{tabular}{clllll}
+\toprule
+\textbf{Layer} & \textbf{Module} & \textbf{Input} & \textbf{Output (n)} & \textbf{Key Args} & \textbf{Note} \\
+\midrule
+h11 & Upsample & b10 ($256\times10^2$) & $256\times20^2$ & scale=2, nearest & Upsample P5 \\
+h12 & Concat   & h11, b6               & $384\times20^2$ & dim=1            & Concat với Backbone P4 \\
+h13 & C3k2     & h12                   & $128\times20^2$ & c3k=T, $e\!=\!0.5$ & Trích xuất đặc trưng P4 \\
+h14 & Upsample & h13 ($128\times20^2$) & $128\times40^2$ & scale=2, nearest & Upsample P4 \\
+h15 & Concat   & h14, b4               & $256\times40^2$ & dim=1            & Concat với Backbone P3 \\
+h16 & C3k2     & h15                   & $64\times40^2$  & c3k=T, $e\!=\!0.5$ & \textbf{P3 Output (Vật nhỏ)} \\
+h17 & Conv     & h16 ($64\times40^2$)  & $64\times20^2$  & $k\!=\!3, s\!=\!2$ & Giảm tỷ lệ P3 xuống P4 \\
+h18 & Concat   & h17, h13              & $192\times20^2$ & dim=1            & Concat với FPN P4 \\
+h19 & C3k2     & h18                   & $128\times20^2$ & c3k=T, $e\!=\!0.5$ & \textbf{P4 Output (Vật vừa)} \\
+h20 & Conv     & h19 ($128\times20^2$) & $128\times10^2$ & $k\!=\!3, s\!=\!2$ & Giảm tỷ lệ P4 xuống P5 \\
+h21 & Concat   & h20, b10              & $384\times10^2$ & dim=1            & Concat với Backbone P5 \\
+h22 & C3k2     & h21                   & $256\times10^2$ & c3k=T, attn=T    & \textbf{P5 Output (Vật lớn)} \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \begin{table}[H]
 \centering
@@ -829,7 +934,55 @@ self.cv3 = nn.ModuleList(
     \end{tabularx}
 \end{table}
 
-Khi deploy thực tế, nhánh O2M bị loại bỏ hoàn toàn thông qua hàm \texttt{strip\_o2m()}, chỉ giữ lại nhánh O2O phục vụ suy luận trực tiếp.
+Sơ đồ kiến trúc nhánh kép (Dual-Head) được biểu diễn trực quan ở hình dưới:
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    node distance=0cm, auto,
+    every node/.style={font=\small},
+    block/.style={rectangle, draw=blue!70!black, fill=blue!5, thick, rounded corners, minimum width=2.4cm, minimum height=0.8cm, align=center},
+    grayblock/.style={rectangle, draw=gray!70!black, fill=gray!10, thick, rounded corners, minimum width=2.4cm, minimum height=0.8cm, align=center},
+    purpleblock/.style={rectangle, draw=purple!70!black, fill=purple!5, thick, rounded corners, minimum width=2.4cm, minimum height=0.8cm, align=center},
+    orangeblock/.style={rectangle, draw=orange!70!black, fill=orange!5, thick, rounded corners, minimum width=2.4cm, minimum height=0.8cm, align=center},
+    greenblock/.style={rectangle, draw=green!70!black, fill=green!5, thick, rounded corners, minimum width=2.6cm, minimum height=0.8cm, align=center},
+    line/.style={draw, thick, ->, >=latex},
+    dashedline/.style={draw, thick, dashed, ->, >=latex}
+]
+    % Nodes
+    \node (neck) at (0, 0) [grayblock] {\textbf{Đặc trưng từ Neck}\\ (P3, P4, P5)};
+    
+    % O2M Branch
+    \node (o2m_head) at (3.2, 1.2) [block] {\textbf{Nhánh O2M Head}\\ (cv2, cv3)};
+    \node (o2m_loss) at (6.2, 1.2) [orangeblock] {\textbf{O2M Loss}\\ (TAL topk=10)};
+    
+    % O2O Branch
+    \node (detach)   at (2.4, -1.2) [purpleblock] {\textbf{Detach()}\\ (Ngắt gradient)};
+    \node (o2o_head) at (5.4, -1.2) [block] {\textbf{Nhánh O2O Head}\\ (one2one\_cv2, one2one\_cv3)};
+    \node (o2o_loss) at (8.4, -1.2) [orangeblock] {\textbf{O2O Loss}\\ (TAL topk=1)};
+    
+    % Total Loss
+    \node (total_loss) at (6.0, -2.6) [greenblock] {\textbf{Tổng Loss}\\ $\mathcal{L}_{\text{total}} = \mathcal{L}_{\text{o2m}} + \mathcal{L}_{\text{o2o}}$};
+
+    % Connections
+    \path [line] (neck.east) -- ++(0.4,0) |- (o2m_head.west);
+    \path [line] (neck.east) -- ++(0.4,0) |- (detach.west);
+    \path [line] (detach.east) -- (o2o_head.west);
+    \path [line] (o2m_head.east) -- (o2m_loss.west);
+    \path [line] (o2o_head.east) -- (o2o_loss.west);
+    
+    % Routing lines from loss nodes to total_loss around the right side without overlaps
+    \path [line] (o2m_loss.east) -- (10.0, 1.2) |- (total_loss.east);
+    \path [line] (o2o_loss.east) -- (10.0, -1.2) |- (total_loss.east);
+    
+    % Gradient flow
+    \path [dashedline] (o2m_loss.north) -- ++(0,0.5) -| node[above, pos=0.25, font=\scriptsize] {Lan truyền ngược (Gradient)} (neck.north);
+\end{tikzpicture}
+\caption{Sơ đồ cấu trúc Dual-Head (O2M/O2O) và cơ chế ngắt lan truyền ngược gradient của nhánh O2O để bảo vệ các đặc trưng chung ở Backbone và Neck.}
+\label{fig:dual_head_flow}
+\end{figure}
+
+Khi deploy thực tế, nhánh O2M bị loại bỏ hoàn toàn thông qua phương thức \texttt{Detect.fuse()} (gán \texttt{cv2 = cv3 = None}), chỉ giữ lại nhánh O2O phục vụ suy luận trực tiếp.
 
 \begin{table}[H]
 \centering
@@ -866,6 +1019,36 @@ Optimizer state & Có & Stripped & -- \\
     \end{equation}
     \item \textbf{Rescale}: Nhân tọa độ với stride tương ứng để đưa về kích thước ảnh gốc.
 \end{enumerate}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[scale=1.2]
+    % Draw grid
+    \draw[step=1cm, gray!40, thick] (-2,-2) grid (2,2);
+    
+    % Draw anchor point (cx, cy)
+    \filldraw[blue] (0.5,0.5) circle (2pt) node[anchor=north east, font=\small] {$(c_x, c_y)$};
+    
+    % Draw Bounding Box (xmin, ymin) to (xmax, ymax)
+    \draw[red, ultra thick] (-1.2,-0.8) rectangle (1.5,1.8);
+    \node[red, anchor=south west, font=\small] at (1.5,1.8) {$(x_{\text{max}}, y_{\text{max}})$};
+    \node[red, anchor=north east, font=\small] at (-1.2,-0.8) {$(x_{\text{min}}, y_{\text{min}})$};
+    
+    % Draw arrows for distances
+    \draw[latex-latex, blue, thick] (-1.2,0.5) -- (0.5,0.5) node[midway, above, font=\scriptsize] {$d_{\text{left}}$};
+    \draw[latex-latex, blue, thick] (0.5,0.5) -- (1.5,0.5) node[midway, above, font=\scriptsize] {$d_{\text{right}}$};
+    \draw[latex-latex, blue, thick] (0.5,0.5) -- (0.5,1.8) node[midway, right, font=\scriptsize] {$d_{\text{top}}$};
+    \draw[latex-latex, blue, thick] (0.5,-0.8) -- (0.5,0.5) node[midway, right, font=\scriptsize] {$d_{\text{bottom}}$};
+    
+    % Draw dashed lines to edges for clarity
+    \draw[dashed, gray] (-1.2,0.5) -- (-1.2,-0.8);
+    \draw[dashed, gray] (1.5,0.5) -- (1.5,1.8);
+    \draw[dashed, gray] (0.5,1.8) -- (1.5,1.8);
+    \draw[dashed, gray] (0.5,-0.8) -- (-1.2,-0.8);
+\end{tikzpicture}
+\caption{Cơ chế giải mã tọa độ bounding box theo khoảng cách LTRB từ tâm ô lưới $(c_x, c_y)$.}
+\label{fig:ltrb_decoding}
+\end{figure}
 
 \subsection{Cơ chế DFL (Distribution Focal Loss)}
 \label{subsec:dfl_module}
@@ -932,5 +1115,37 @@ x (xlarge) & 1.00 & 1.50 & 512  & Chính xác nhất \\
 \end{align}
 
 Ví dụ scale nano: $\texttt{ch}(256) = \texttt{make\_divisible}(\min(256, 1024) \times 0.25, 8) = 64$.
+
+\subsection{Bảng so sánh kích thước các tầng đặc trưng qua các Scale}
+
+Dưới đây là bảng so sánh số kênh đầu ra tại các lớp Backbone và Neck quan trọng trên cả 5 cấu hình scale:
+
+\begin{table}[H]
+\centering
+\small
+\caption{Số kênh của các lớp đặc trưng quan trọng trong YOLO26 trên các scale khác nhau.}
+\label{tab:scale_channels}
+\begin{tabular}{lcccccc}
+\toprule
+\textbf{Tầng} & \textbf{Kênh Cơ sở} & \textbf{Nano (n)} & \textbf{Small (s)} & \textbf{Medium (m)} & \textbf{Large (l)} & \textbf{X-Large (x)} \\
+\midrule
+b0 (Conv 1)   & 64                  & 16                & 32                 & 64                  & 64                 & 96                   \\
+b1 (Conv 2)   & 128                 & 32                & 64                 & 128                 & 128                & 192                  \\
+b2 (C3k2)     & 256                 & 64                & 128                & 256                 & 256                & 384                  \\
+b4 (C3k2)     & 512                 & 128               & 256                & 512                 & 512                & 768                  \\
+b6 (C3k2)     & 512                 & 128               & 256                & 512                 & 512                & 768                  \\
+b8 (C3k2)     & 1024                & 256               & 512                & 512                 & 512                & 768                  \\
+b10 (C2PSA)   & 1024                & 256               & 512                & 512                 & 512                & 768                  \\
+\midrule
+h13 (C3k2)    & 512                 & 128               & 256                & 512                 & 512                & 768                  \\
+h16 (P3 Output)& 256                & 64                & 128                & 256                 & 256                & 384                  \\
+h19 (P4 Output)& 512                & 128               & 256                & 512                 & 512                & 768                  \\
+h22 (P5 Output)& 1024               & 256               & 512                & 512                 & 512                & 768                  \\
+\midrule
+\textbf{Số lần lặp block} & & & & & & \\
+$\texttt{rep}(2)$ & 2               & 1                 & 1                  & 1                   & 2                  & 2                    \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 Trong đồ án, nhóm sử dụng biến thể \textbf{nano} (n) với tổng dung lượng weights khoảng 5.3MB, phù hợp cho triển khai trên \rpi.

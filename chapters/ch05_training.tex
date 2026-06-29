@@ -18,7 +18,7 @@ from ultralytics import YOLO
 model = YOLO("yolo26n.pt")  # Pretrained nano
 model.train(
     data="coco_person_320.yaml",
-    epochs=120,
+    epochs=100,
     imgsz=224,
     batch=64,
     project="TRACKING_YOLO26",
@@ -44,7 +44,7 @@ Lý do lựa chọn kích thước ảnh huấn luyện \texttt{imgsz=224} (th�
         \midrule
         Nền tảng         & Kaggle (GPU) \\
         Mô hình cơ sở    & yolo26n.pt (pretrained) \\
-        Epochs            & 120 \\
+        Epochs            & 100 \\
         Batch size        & 64 \\
         Image size        & 224 $\times$ 224 \\
         Learning rate (lr0) & 0.01 \\
@@ -65,85 +65,52 @@ Lý do lựa chọn kích thước ảnh huấn luyện \texttt{imgsz=224} (th�
 
 \begin{table}[H]
     \centering
-    \caption{Kết quả huấn luyện YOLO26 gốc (epoch 120)}
+    \caption{Kết quả huấn luyện YOLO26 gốc (epoch 100)}
     \label{tab:results_ultra}
     \begin{tabular}{lr}
         \toprule
         \textbf{Chỉ số} & \textbf{Giá trị} \\
         \midrule
-        \textbf{mAP50}      & \textbf{0.756} \\
-        \textbf{mAP50-95}   & \textbf{0.532} \\
-        Precision            & 0.840 \\
-        Recall               & 0.645 \\
+        \textbf{mAP50}      & \textbf{0.809} \\
+        \textbf{mAP50-95}   & \textbf{0.593} \\
+        Precision            & 0.879 \\
+        Recall               & 0.695 \\
         \bottomrule
     \end{tabular}
 \end{table}
 
 \begin{figure}[H]
     \centering
-    \begin{tikzpicture}
-    \begin{axis}[
-        width=0.85\textwidth,
-        height=6cm,
-        xlabel={Epoch},
-        ylabel={Loss},
-        xmin=0, xmax=120,
-        ymin=1.0, ymax=6.0,
-        xtick={0,20,40,60,80,100,120},
-        legend pos=north east,
-        ymajorgrids=true,
-        grid style={dashed,color=gray!30},
-        axis line style={draw=gray!80},
-        tick label style={font=\small},
-        label style={font=\small},
-        legend style={font=\small, draw=gray!50, fill=white}
-    ]
-    \addplot[
-        color=blue!80!black,
-        thick
-    ] coordinates {
-        (0, 5.2) (10, 3.1) (20, 2.5) (30, 2.1) (40, 1.9) (50, 1.8) 
-        (60, 1.7) (70, 1.6) (80, 1.55) (90, 1.5) (100, 1.45) (110, 1.42) (120, 1.4)
-    };
-    \addlegendentry{Train Loss}
-    
-    \addplot[
-        color=red!80!black,
-        thick
-    ] coordinates {
-        (0, 4.8) (10, 3.3) (20, 2.7) (30, 2.4) (40, 2.2) (50, 2.1) 
-        (60, 2.0) (70, 1.95) (80, 1.9) (90, 1.88) (100, 1.85) (110, 1.82) (120, 1.8)
-    };
-    \addlegendentry{Val Loss}
-    \end{axis}
-    \end{tikzpicture}
-    \caption{Biểu đồ loss curves trong quá trình huấn luyện YOLO26 gốc qua 120 epochs.}
+    \includegraphics[width=\textwidth]{figures/origin_results.png}
+    \caption{Biểu đồ các đường loss và chỉ số đánh giá (metrics) trong quá trình huấn luyện YOLO26 gốc qua 100 epochs.}
     \label{fig:loss_curves_ultra}
 \end{figure}
 
 \begin{figure}[H]
     \centering
     \begin{tikzpicture}[scale=1.2]
-        % Draw grid cell backgrounds
-        \draw[fill=blue!80!black!80, draw=white, thick] (0,1) rectangle (2,2);
-        \draw[fill=blue!15, draw=white, thick] (2,1) rectangle (4,2);
-        \draw[fill=blue!20, draw=white, thick] (0,0) rectangle (2,1);
-        \draw[fill=blue!80!black!60, draw=white, thick] (2,0) rectangle (4,1);
+        % Draw grid cell backgrounds (perfectly square 2x2 cells)
+        \draw[fill=blue!80!black!85, draw=white, line width=1.5pt] (0,2) rectangle (2,4);
+        \draw[fill=blue!15, draw=white, line width=1.5pt] (2,2) rectangle (4,4);
+        \draw[fill=blue!20, draw=white, line width=1.5pt] (0,0) rectangle (2,2);
+        \draw[fill=blue!80!black!65, draw=white, line width=1.5pt] (2,0) rectangle (4,2);
         
-        % Cell labels (values)
-        \node[white, font=\large\bfseries] at (1, 1.5) {0.84};
-        \node[black, font=\large\bfseries] at (3, 1.5) {0.16};
-        \node[black, font=\large\bfseries] at (1, 0.5) {0.20};
-        \node[white, font=\large\bfseries] at (3, 0.5) {0.80};
+        % Cell labels (values) at center of each 2x2 square
+        \node[white, font=\Large\bfseries] at (1, 3) {0.84};
+        \node[black, font=\Large\bfseries] at (3, 3) {0.16};
+        \node[black, font=\Large\bfseries] at (1, 1) {0.20};
+        \node[white, font=\Large\bfseries] at (3, 1) {0.80};
         
-        % Axis labels
-        \node[left, font=\bfseries] at (-0.2, 1.5) {Person};
-        \node[left, font=\bfseries] at (-0.2, 0.5) {Background};
-        \node[above, font=\bfseries] at (1, 2.2) {Person};
-        \node[above, font=\bfseries] at (3, 2.2) {Background};
+        % Axis labels (aligned using anchors to prevent overlapping)
+        \node[anchor=east, font=\bfseries] at (-0.2, 3) {Person};
+        \node[anchor=east, font=\bfseries] at (-0.2, 1) {Background};
         
-        \node[rotate=90, font=\bfseries\small] at (-1.2, 1) {True Label};
-        \node[font=\bfseries\small] at (2, 2.7) {Predicted Label};
+        \node[anchor=south, font=\bfseries] at (1, 4.15) {Person};
+        \node[anchor=south, font=\bfseries] at (3, 4.15) {Background};
+        
+        % Axis titles
+        \node[rotate=90, anchor=center, font=\bfseries\small] at (-1.8, 2) {True Label};
+        \node[anchor=center, font=\bfseries\small] at (2, 4.9) {Predicted Label};
     \end{tikzpicture}
     \caption{Ma trận nhầm lẫn (Confusion Matrix) của YOLO26 gốc trên tập validation.}
     \label{fig:confusion_matrix_ultra}
@@ -545,24 +512,24 @@ def strip_o2m(model):
 \end{lstlisting}
 
 % ===================================================================
-\section{Kết quả Custom (1st run)}
+\section{Kết quả Custom last run}
 \label{sec:results_custom}
 
 \begin{table}[H]
     \centering
-    \caption{Kết quả huấn luyện YOLO26 Custom --- lần chạy 1 (79 epochs)}
+    \caption{Kết quả huấn luyện YOLO26 Custom --- last run}
     \label{tab:results_custom}
     \begin{tabular}{lr}
         \toprule
         \textbf{Chỉ số} & \textbf{Giá trị} \\
         \midrule
         Platform             & Kaggle T4 GPU \\
-        Epochs đã chạy       & 79 \\
-        \textbf{mAP50}       & \textbf{0.686} \\
-        Box loss (train)     & 1.166 \\
-        Cls loss (train)     & 4.097 \\
-        Val box loss         & 0.984 \\
-        Val cls loss         & 4.143 \\
+        Epochs đã chạy       & 100 \\
+        \textbf{mAP50}       & \textbf{0.778} \\
+        Box loss (train)     & 1.361 \\
+        Cls loss (train)     & 1.208 \\
+        Val box loss         & 1.207 \\
+        Val cls loss         & 1.048 \\
         Weights (best.pt)    & $\sim$30.7 MB \\
         \bottomrule
     \end{tabular}
@@ -570,9 +537,9 @@ def strip_o2m(model):
 
 \textbf{Nhận xét}:
 \begin{itemize}
-    \item Custom model đạt mAP50 = 0.686 sau 79 epochs, so với gốc 0.756 sau 120 epochs. Mô hình vẫn đang trong quá trình hội tụ.
-    \item Cls loss tăng cao ở cuối training (từ $\sim$3.4 $\to$ 4.1) --- đây là \textbf{dấu hiệu bình thường} của ProgLoss đang chuyển trọng số từ O2M sang O2O, ép cls loss của O2O tăng lên.
-    \item Val box loss tiếp tục giảm tốt ($2.22 \to 0.98$), cho thấy mô hình đang học định vị hiệu quả.
+    \item Custom model đạt mAP50 = 0.778 sau 100 epochs, tiệm cận hiệu năng của bản gốc 0.809 sau 100 epochs.
+    \item Cls loss (train) giảm ổn định từ 4.68 xuống 1.21, val cls loss giảm từ 3.23 xuống 1.05.
+    \item Val box loss tiếp tục giảm tốt ($2.24 \to 1.21$), cho thấy mô hình đang học định vị hiệu quả.
     \item Weights lớn hơn nhiều so với gốc ($\sim$30.7 MB vs $\sim$5.3 MB) do chứa cả O2M head và optimizer state. Sau khi \texttt{strip\_o2m()}, kích thước sẽ giảm đáng kể.
 \end{itemize}
 
