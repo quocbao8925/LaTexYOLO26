@@ -26,6 +26,14 @@ model.train(
 )
 \end{lstlisting}
 
+Lý do lựa chọn kích thước ảnh huấn luyện \texttt{imgsz=224} (thấp hơn độ phân giải gốc $320 \times 320$ của bộ dữ liệu) trong thử nghiệm này bao gồm:
+\begin{itemize}
+    \item \textbf{Tối ưu hóa tài nguyên}: Giảm lượng tính toán và dung lượng VRAM, giúp chạy được kích thước lô \texttt{batch=64} trên GPU Kaggle mà không bị lỗi tràn bộ nhớ (OOM).
+    \item \textbf{Tăng tốc độ thử nghiệm}: Rút ngắn thời gian mỗi epoch giúp nhanh chóng xác thực toàn bộ pipeline huấn luyện và thiết lập ghi nhật ký (logging).
+    \item \textbf{Phù hợp thiết bị biên}: Việc giảm độ phân giải đầu vào là giải pháp phổ biến để tăng tốc độ suy luận (FPS) khi triển khai thực tế trên Raspberry Pi 5.
+    \item \textbf{Làm mốc đối chứng (Baseline)}: Sử dụng làm baseline cơ sở trước khi nâng lên độ phân giải đầy đủ $320 \times 320$ ở các phiên bản custom tiếp theo để chứng minh hiệu quả cải tiến.
+\end{itemize}
+
 \begin{table}[H]
     \centering
     \caption{Siêu tham số huấn luyện YOLO26 gốc}
@@ -63,17 +71,17 @@ model.train(
         \toprule
         \textbf{Chỉ số} & \textbf{Giá trị} \\
         \midrule
-        \textbf{mAP50}      & \textbf{0.756} \\
-        \textbf{mAP50-95}   & \textbf{0.532} \\
-        Precision            & 0.840 \\
-        Recall               & 0.645 \\
+        \textbf{mAP50}      & \textbf{0.809} \\
+        \textbf{mAP50-95}   & \textbf{0.593} \\
+        Precision            & 0.879 \\
+        Recall               & 0.695 \\
         \bottomrule
     \end{tabular}
 \end{table}
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=\textwidth]{figures/metricnloss.jpg}
+    \includegraphics[width=\textwidth]{figures/origin_results.png}
     \caption{Biểu đồ các đường loss và chỉ số đánh giá (metrics) trong quá trình huấn luyện YOLO26 gốc qua 100 epochs.}
     \label{fig:loss_curves_ultra}
 \end{figure}
@@ -529,7 +537,7 @@ def strip_o2m(model):
 
 \textbf{Nhận xét}:
 \begin{itemize}
-    \item Custom model đạt mAP50 = 0.778 sau 100 epochs, vượt trội hơn so với bản gốc 0.756 sau 100 epochs.
+    \item Custom model đạt mAP50 = 0.778 sau 100 epochs, tiệm cận hiệu năng của bản gốc 0.809 sau 100 epochs.
     \item Cls loss (train) giảm ổn định từ 4.68 xuống 1.21, val cls loss giảm từ 3.23 xuống 1.05.
     \item Val box loss tiếp tục giảm tốt ($2.24 \to 1.21$), cho thấy mô hình đang học định vị hiệu quả.
     \item Weights lớn hơn nhiều so với gốc ($\sim$30.7 MB vs $\sim$5.3 MB) do chứa cả O2M head và optimizer state. Sau khi \texttt{strip\_o2m()}, kích thước sẽ giảm đáng kể.
